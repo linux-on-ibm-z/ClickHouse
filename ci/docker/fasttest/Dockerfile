@@ -1,6 +1,19 @@
 # docker build -t clickhouse/fasttest .
-FROM ubuntu:24.04
+ARG CCTOOLS_AVAILABLE=${CCTOOLS_AVAILABLE-"with-cctools"}
+ARG CCTOOLS_TAG=${CCTOOLS_TAG-"859fb360308eb8ac47ad"}
 
+FROM clickhouse/cctools:${CCTOOLS_TAG} AS cctools
+
+FROM ubuntu:24.04 AS base-with-cctools
+# Note, libmpfr6 is also a requirement for gdb
+COPY --from=cctools /opt/gdb /opt/gdb
+# Give suid to gdb to grant it attach permissions
+RUN chmod u+s /opt/gdb/bin/gdb
+ENV PATH="/opt/gdb/bin:${PATH}"
+
+FROM ubuntu:24.04 AS base-without-cctools
+
+FROM base-${CCTOOLS_AVAILABLE} AS final
 # ARG for quick switch to a given ubuntu mirror. Defaults stay canonical so local
 # builds are unchanged; CI passes the in-region AWS mirror on the command line
 # (see ci/praktika/docker.py). amd64 base images use archive.ubuntu.com, arm64
@@ -49,11 +62,6 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/debconf /tmp/*
 
-# Install cmake 3.20+ for Rust support
-# Used https://askubuntu.com/a/1157132 as reference
-RUN curl -s https://apt.kitware.com/keys/kitware-archive-latest.asc | gpg --dearmor - > /etc/apt/trusted.gpg.d/kitware.gpg && \
-    echo "deb [signed-by=/etc/apt/trusted.gpg.d/kitware.gpg] https://apt.kitware.com/ubuntu/ $(lsb_release -cs) main" >> /etc/apt/sources.list.d/kitware.list
-
 # moreutils - provides ts fo FT
 # expect, bzip2, less - requried by FT
 # bsdmainutils - provides hexdump for FT
@@ -101,6 +109,8 @@ RUN ARCH=$(uname -m) && \
         RUSTUP_ARCH="x86_64-unknown-linux-gnu"; \
     elif [ "$ARCH" = "aarch64" ]; then \
         RUSTUP_ARCH="aarch64-unknown-linux-gnu"; \
+    elif [ "$ARCH" = "s390x" ]; then \
+        RUSTUP_ARCH="s390x-unknown-linux-gnu"; \
     else \
         echo "Unsupported architecture: $ARCH"; exit 1; \
     fi && \
@@ -121,7 +131,8 @@ RUN ARCH=$(uname -m) && \
     rustup target add powerpc64le-unknown-linux-gnu && \
     rustup target add x86_64-unknown-linux-musl && \
     rustup target add aarch64-unknown-linux-musl && \
-    rustup target add riscv64gc-unknown-linux-gnu
+    rustup target add riscv64gc-unknown-linux-gnu && \
+    rustup target add s390x-unknown-linux-gnu
 
 # Note, libmpfr6 is also a requirement for gdb
 COPY --from=clickhouse/cctools:859fb360308eb8ac47ad /opt/gdb /opt/gdb
@@ -154,17 +165,38 @@ RUN arch=${TARGETARCH} \
     amd64) rarch=x86_64 ;; \
     arm64) rarch=aarch64 ;; \
   esac \
-  && curl -Ls "https://github.com/mozilla/sccache/releases/download/$SCCACHE_VERSION/sccache-$SCCACHE_VERSION-$rarch-unknown-linux-musl.tar.gz" | \
-    tar xz -C /tmp \
-  && mv "/tmp/sccache-$SCCACHE_VERSION-$rarch-unknown-linux-musl/sccache" /usr/bin \
-  && rm "/tmp/sccache-$SCCACHE_VERSION-$rarch-unknown-linux-musl" -r
+  && if [ -n "${rarch}" ]; then \
+    curl -Ls "https://github.com/mozilla/sccache/releases/download/$SCCACHE_VERSION/sccache-$SCCACHE_VERSION-$rarch-unknown-linux-musl.tar.gz" | \
+      tar xz -C /tmp \
+    && mv "/tmp/sccache-$SCCACHE_VERSION-$rarch-unknown-linux-musl/sccache" /usr/bin \
+    && rm "/tmp/sccache-$SCCACHE_VERSION-$rarch-unknown-linux-musl" -r; \
+  else \
+    apt-get update \
+    && apt-get install ccache \
+       --yes --no-install-recommends \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /var/cache/debconf /tmp/*; \
+  fi
 
 COPY requirements.txt /
-RUN pip3 install --break-system-packages --no-cache-dir -r /requirements.txt
-RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o "awscliv2.zip" \
+RUN if [ "${TARGETARCH}" = "s390x" ]; then \
+    apt-get update \
+    && apt-get install libopenblas-dev pkg-config build-essential python3-dev gfortran \
+       --yes --no-install-recommends \
+    && pip3 install --upgrade packaging setuptools pip \
+    && pip3 install Cython \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /var/cache/debconf /tmp/*; \
+  fi \
+  && pip3 install --break-system-packages --no-cache-dir -r /requirements.txt
+RUN if [ "${TARGETARCH}" = "s390x" ]; then \
+    pip3 install --upgrade awscli;
+  else \
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o "awscliv2.zip" \
     && unzip -q awscliv2.zip \
     && ./aws/install \
-    && rm -rf awscliv2.zip aws
+    && rm -rf awscliv2.zip aws; \
+  fi
 
 # chmod 777 to make the container user independent
 RUN mkdir -p /var/lib/clickhouse \
@@ -181,9 +213,9 @@ RUN (userdel -r ubuntu 2>/dev/null || true) && (groupdel ubuntu 2>/dev/null || t
 
 # TODO move nfpm to docker that will do packaging
 ARG TARGETARCH
-ARG NFPM_VERSION=2.20.0
+ARG NFPM_VERSION=2.44.1
 RUN arch=${TARGETARCH:-amd64} \
-    && curl -Lo /tmp/nfpm.deb "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${arch}.deb" \
+    && curl -Lo /tmp/nfpm.deb "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_${arch}.deb" \
     && dpkg -i /tmp/nfpm.deb \
     && rm /tmp/nfpm.deb
 

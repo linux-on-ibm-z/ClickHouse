@@ -3,9 +3,10 @@
 # This is a hack to significantly reduce the build time of the clickhouse/binary-builder
 # It's based on the assumption that we don't care of the cctools version so much
 # It even does not depend on the clickhouse/fasttest in the `docker/images.json`
-ARG FROM_TAG=latest
-FROM clickhouse/fasttest:$FROM_TAG AS builder
+ARG FASTTEST_TAG=latest
+ARG CCTOOLS_AVAILABLE=${CCTOOLS_AVAILABLE-"with-cctools"}
 
+FROM clickhouse/fasttest:$FASTTEST_TAG AS builder-with-cctools
 ENV CC=clang-${LLVM_VERSION}
 ENV CXX=clang++-${LLVM_VERSION}
 
@@ -33,6 +34,13 @@ RUN git clone https://github.com/tpoechtrager/cctools-port.git --branch 986-ld64
     && make install -j$(nproc) \
     && cd ../.. \
     && rm -rf cctools-port
+
+FROM clickhouse/fasttest:$FASTTEST_TAG AS builder-without-cctools
+ENV CC=clang-${LLVM_VERSION}
+ENV CXX=clang++-${LLVM_VERSION}
+RUN mkdir /cctools
+
+FROM builder-${CCTOOLS_AVAILABLE} AS builder
 
 #
 # GDB
@@ -86,7 +94,8 @@ RUN apt-get update && apt-get install -y \
     python3 \
     make \
     git \
-    ca-certificates
+    ca-certificates \
+    libssl-dev
 
 WORKDIR /tmp
 RUN wget https://www.openssl.org/source/openssl-${OPENSSL_VERSION}.tar.gz && \
