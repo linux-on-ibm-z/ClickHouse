@@ -132,8 +132,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 RUN groupadd --system --gid 1000 clickhouse \
     && useradd --system --gid 1000 --uid 1000 -m clickhouse \
-    && mkdir -p /.cache/sccache && chmod 777 /.cache/sccache \
-    && mkdir -p /.cache/ccache && chmod 777 /.cache/ccache
+    && mkdir -p /.cache/sccache && chmod 777 /.cache/sccache
 
 
 # TODO move nfpm to docker that will do packaging
