@@ -156,27 +156,20 @@ RUN ln -s /usr/bin/lld-${LLVM_VERSION} /usr/bin/ld.lld
 RUN sed -i '/_IMPORT_CHECK_FILES_FOR_\(mlir-\|llvm-bolt\|merge-fdata\|MLIR\)/ {s|^|#|}' /usr/lib/llvm-${LLVM_VERSION}/lib/cmake/llvm/LLVMExports-*.cmake
 
 ARG TARGETARCH
-ARG SCCACHE_VERSION=v0.10.0
+ARG SCCACHE_VERSION=v0.14.0
 ENV SCCACHE_IGNORE_SERVER_IO_ERROR=1
 # sccache requires a value for the region. So by default we use The Default Region
 ENV SCCACHE_REGION=us-east-1
-RUN arch=${TARGETARCH} \
+RUN arch=${TARGETARCH} && rlib=musl \
   && case $arch in \
     amd64) rarch=x86_64 ;; \
     arm64) rarch=aarch64 ;; \
+    *)     rarch=${TARGETARCH} && rlib=gnu ;; \
   esac \
-  && if [ -n "${rarch}" ]; then \
-    curl -Ls "https://github.com/mozilla/sccache/releases/download/$SCCACHE_VERSION/sccache-$SCCACHE_VERSION-$rarch-unknown-linux-musl.tar.gz" | \
-      tar xz -C /tmp \
-    && mv "/tmp/sccache-$SCCACHE_VERSION-$rarch-unknown-linux-musl/sccache" /usr/bin \
-    && rm "/tmp/sccache-$SCCACHE_VERSION-$rarch-unknown-linux-musl" -r; \
-  else \
-    apt-get update \
-    && apt-get install ccache \
-       --yes --no-install-recommends \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /var/cache/debconf /tmp/*; \
-  fi
+  && curl -Ls "https://github.com/mozilla/sccache/releases/download/$SCCACHE_VERSION/sccache-$SCCACHE_VERSION-$rarch-unknown-linux-$rlib.tar.gz" | \
+    tar xz -C /tmp \
+  && mv "/tmp/sccache-$SCCACHE_VERSION-$rarch-unknown-linux-$rlib/sccache" /usr/bin \
+  && rm "/tmp/sccache-$SCCACHE_VERSION-$rarch-unknown-linux-$rlib" -r;
 
 COPY requirements.txt /
 RUN if [ "${TARGETARCH}" = "s390x" ]; then \
