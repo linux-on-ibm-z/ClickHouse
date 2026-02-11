@@ -175,9 +175,11 @@ COPY requirements.txt /
 RUN if [ "${TARGETARCH}" = "s390x" ]; then \
     apt-get update \
     && apt-get install libopenblas-dev pkg-config build-essential python3-dev gfortran \
-       --yes --no-install-recommends \
-    && pip3 install --upgrade packaging setuptools pip \
+      python3-pkg-resources python3-setuptools --yes --no-install-recommends \
+    && pip3 install meson \
+    && pip3 install pybind11 \
     && pip3 install Cython \
+    && pip3 install pythran \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/debconf /tmp/*; \
   fi \
