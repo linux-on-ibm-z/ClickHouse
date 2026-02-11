@@ -365,6 +365,8 @@ class BuildTypes(metaclass=MetaClasses.WithIter):
     LLVM_COVERAGE_BUILD = "llvm_coverage_build"
     PER_TEST_COVERAGE = "amd_llvm_coverage_per_test"
     AMD_COVERAGE = "amd_coverage"
+    S390X_DEBUG = "s390x_debug"
+    S390X_RELEASE = "s390x_release"
     ARM_BINARY = "arm_binary"
     AMD_TIDY = "amd_tidy"
     ARM_TIDY = "arm_tidy"
@@ -490,6 +492,8 @@ class ArtifactNames:
     CH_ARM_ASAN_UBSAN = "CH_ARM_ASAN_UBSAN"
     CH_ARM_TSAN = "CH_ARM_TSAN"
     CH_ARM_MSAN = "CH_ARM_MSAN"
+    CH_S390X_DEBUG = "CH_S390X_DEBUG"
+    CH_S390X_RELEASE = "CH_S390X_RELEASE"
 
     CH_COV_BIN = "CH_COV_BIN"
     CH_ARM_BINARY = "CH_ARM_BIN"
@@ -522,12 +526,15 @@ class ArtifactNames:
     # everything else in CI runs from the `CH_*` binary.
     DEB_AMD_RELEASE = "DEB_AMD_RELEASE"
     DEB_ARM_RELEASE = "DEB_ARM_RELEASE"
+    DEB_S390X_RELEASE = "DEB_S390X_RELEASE"
 
     RPM_AMD_RELEASE = "RPM_AMD_RELEASE"
     RPM_ARM_RELEASE = "RPM_ARM_RELEASE"
+    RPM_S390X_RELEASE = "RPM_S390X_RELEASE"
 
     TGZ_AMD_RELEASE = "TGZ_AMD_RELEASE"
     TGZ_ARM_RELEASE = "TGZ_ARM_RELEASE"
+    TGZ_S390X_RELEASE = "TGZ_S390X_RELEASE"
 
     ARM_FUZZERS = "ARM_FUZZERS"
     FUZZERS_CORPUS = "FUZZERS_CORPUS"
@@ -713,6 +720,7 @@ class ArtifactConfigs:
         names=[
             ArtifactNames.DEB_AMD_RELEASE,
             ArtifactNames.DEB_ARM_RELEASE,
+            ArtifactNames.DEB_S390X_RELEASE,
         ]
     )
     clickhouse_rpms = Artifact.Config(
@@ -723,6 +731,7 @@ class ArtifactConfigs:
         names=[
             ArtifactNames.RPM_AMD_RELEASE,
             ArtifactNames.RPM_ARM_RELEASE,
+            ArtifactNames.RPM_S390X_RELEASE,
         ]
     )
     clickhouse_tgzs = Artifact.Config(
@@ -733,6 +742,7 @@ class ArtifactConfigs:
         names=[
             ArtifactNames.TGZ_AMD_RELEASE,
             ArtifactNames.TGZ_ARM_RELEASE,
+            ArtifactNames.TGZ_S390X_RELEASE,
         ]
     )
     unittests_binaries = Artifact.Config(
