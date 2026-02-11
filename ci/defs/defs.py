@@ -17,6 +17,7 @@ class RunnerLabels:
     CI_SERVICES_EBS = "ci_services_ebs"
     BUILDER_AMD = ["self-hosted", "builder"]
     BUILDER_ARM = ["self-hosted", "builder-aarch64"]
+    BUILDER_S390X = ["self-hosted", "builder-s390x"]
     FUNC_TESTER_AMD = ["self-hosted", "amd-medium"]
     FUNC_TESTER_ARM = ["self-hosted", "arm-medium"]
     AMD_LARGE = ["self-hosted", "amd-large"]
@@ -293,6 +294,8 @@ class BuildTypes(metaclass=MetaClasses.WithIter):
     AMD_UBSAN = "amd_ubsan"
     ARM_RELEASE = "arm_release"
     ARM_ASAN = "arm_asan"
+    S390X_DEBUG = "s390x_debug"
+    S390X_RELEASE = "s390x_release"
 
     ARM_COVERAGE = "arm_coverage"
     ARM_BINARY = "arm_binary"
@@ -358,6 +361,8 @@ class ArtifactNames:
     CH_AMD_BINARY = "CH_AMD_BINARY"
     CH_ARM_RELEASE = "CH_ARM_RELEASE"
     CH_ARM_ASAN = "CH_ARM_ASAN"
+    CH_S390X_DEBUG = "CH_S390X_DEBUG"
+    CH_S390X_RELEASE = "CH_S390X_RELEASE"
 
     CH_COV_BIN = "CH_COV_BIN"
     CH_ARM_BINARY = "CH_ARM_BIN"
@@ -388,12 +393,16 @@ class ArtifactNames:
     DEB_AMD_UBSAN = "DEB_AMD_UBSAN"
     DEB_ARM_RELEASE = "DEB_ARM_RELEASE"
     DEB_ARM_ASAN = "DEB_ARM_ASAN"
+    DEB_S390X_DEBUG = "DEB_S390X_DEBUG"
+    DEB_S390X_RELEASE = "DEB_S390X_RELEASE"
 
     RPM_AMD_RELEASE = "RPM_AMD_RELEASE"
     RPM_ARM_RELEASE = "RPM_ARM_RELEASE"
+    RPM_S390X_RELEASE = "RPM_S390X_RELEASE"
 
     TGZ_AMD_RELEASE = "TGZ_AMD_RELEASE"
     TGZ_ARM_RELEASE = "TGZ_ARM_RELEASE"
+    TGZ_S390X_RELEASE = "TGZ_S390X_RELEASE"
 
     FUZZERS = "FUZZERS"
     FUZZERS_CORPUS = "FUZZERS_CORPUS"
@@ -445,6 +454,8 @@ class ArtifactConfigs:
             ArtifactNames.DEB_COV,
             ArtifactNames.DEB_ARM_RELEASE,
             ArtifactNames.DEB_ARM_ASAN,
+            ArtifactNames.DEB_S390X_RELEASE,
+            ArtifactNames.DEB_S390X_DEBUG,
         ]
     )
     clickhouse_rpms = Artifact.Config(
@@ -455,6 +466,7 @@ class ArtifactConfigs:
         names=[
             ArtifactNames.RPM_AMD_RELEASE,
             ArtifactNames.RPM_ARM_RELEASE,
+            ArtifactNames.RPM_S390X_RELEASE,
         ]
     )
     clickhouse_tgzs = Artifact.Config(
@@ -465,6 +477,7 @@ class ArtifactConfigs:
         names=[
             ArtifactNames.TGZ_AMD_RELEASE,
             ArtifactNames.TGZ_ARM_RELEASE,
+            ArtifactNames.TGZ_S390X_RELEASE,
         ]
     )
     unittests_binaries = Artifact.Config(

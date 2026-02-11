@@ -144,6 +144,23 @@ class JobConfigs:
             runs_on=RunnerLabels.BUILDER_AMD,
         ),
         Job.ParamSet(
+            parameter=BuildTypes.S390X_DEBUG,
+            provides=[ArtifactNames.CH_S390X_DEBUG, ArtifactNames.DEB_S390X_DEBUG],
+            runs_on=RunnerLabels.BUILDER_S390X,
+            timeout=3600 * 4,
+        ),
+        Job.ParamSet(
+            parameter=BuildTypes.S390X_RELEASE,
+            provides=[
+                ArtifactNames.CH_S390X_RELEASE,
+                ArtifactNames.DEB_S390X_RELEASE,
+                ArtifactNames.RPM_S390X_RELEASE,
+                ArtifactNames.TGZ_S390X_RELEASE,
+            ],
+            runs_on=RunnerLabels.BUILDER_S390X,
+            timeout=3600 * 4,
+        ),
+        Job.ParamSet(
             parameter=BuildTypes.AMD_ASAN,
             provides=[
                 ArtifactNames.CH_AMD_ASAN,

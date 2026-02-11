@@ -1,14 +1,18 @@
 # docker build -t clickhouse/binary-builder .
 ARG FROM_TAG
+ARG CCTOOLS_TAG=${CCTOOLS_TAG-"859fb360308eb8ac47ad"}
+
+FROM clickhouse/cctools:${CCTOOLS_TAG} AS cctools
+
 FROM clickhouse/fasttest:$FROM_TAG
 ENV CC=clang-${LLVM_VERSION}
 ENV CXX=clang++-${LLVM_VERSION}
 
 # If the cctools is updated, then first build it in the CI, then update here in a different commit
-COPY --from=clickhouse/cctools:859fb360308eb8ac47ad /cctools /cctools
+COPY --from=cctools /cctools /cctools
 
 # We need OpenSSL FIPS in permissive mode for build on MasterCI
-COPY --from=clickhouse/cctools:859fb360308eb8ac47ad \
+COPY --from=cctools \
   /opt/openssl-fips/openssl.cnf \
   /opt/openssl-fips/fipsmodule.cnf \
   /opt/openssl-fips/fips.so \
@@ -19,10 +23,15 @@ COPY --from=clickhouse/cctools:859fb360308eb8ac47ad \
 RUN apt-get update \
     && apt-get install software-properties-common --yes --no-install-recommends --verbose-versions
 
-RUN add-apt-repository ppa:ubuntu-toolchain-r/test --yes \
+RUN ARCH=$(uname -m) \
+    && BINUTILS_RISCV64_PKG=binutils-riscv64-linux-gnu \
+    && if [ "$ARCH" = "s390x" ]; then \
+        BINUTILS_RISCV64_PKG=""; \
+    fi \
+    && add-apt-repository ppa:ubuntu-toolchain-r/test --yes \
     && apt-get update \
     && apt-get install --yes \
-        binutils-riscv64-linux-gnu \
+        $BINUTILS_RISCV64_PKG \
         build-essential \
         python3-boto3 \
         yasm \
@@ -43,6 +52,8 @@ RUN ARCH=$(uname -m) && \
         RUSTUP_ARCH="x86_64-unknown-linux-gnu"; \
     elif [ "$ARCH" = "aarch64" ]; then \
         RUSTUP_ARCH="aarch64-unknown-linux-gnu"; \
+    elif [ "$ARCH" = "s390x" ]; then \
+        RUSTUP_ARCH="s390x-unknown-linux-gnu"; \
     else \
         echo "Unsupported architecture: $ARCH"; exit 1; \
     fi && \
@@ -63,22 +74,15 @@ RUN ARCH=$(uname -m) && \
     rustup target add powerpc64le-unknown-linux-gnu && \
     rustup target add x86_64-unknown-linux-musl && \
     rustup target add aarch64-unknown-linux-musl && \
-    rustup target add riscv64gc-unknown-linux-gnu
-
-# Download and install mold 2.0 for s390x build
-RUN curl -Lo /tmp/mold.tar.gz "https://github.com/rui314/mold/releases/download/v2.0.0/mold-2.0.0-x86_64-linux.tar.gz" \
-    && mkdir /tmp/mold \
-    && tar -xzf /tmp/mold.tar.gz -C /tmp/mold \
-    && cp -r /tmp/mold/mold*/* /usr \
-    && rm -rf /tmp/mold \
-    && rm /tmp/mold.tar.gz
+    rustup target add riscv64gc-unknown-linux-gnu && \
+    rustup target add s390x-unknown-linux-gnu
 
 # Architecture of the image when BuildKit/buildx is used
 ARG TARGETARCH
-ARG NFPM_VERSION=2.20.0
+ARG NFPM_VERSION=2.44.1
 
 RUN arch=${TARGETARCH:-amd64} \
-    && curl -Lo /tmp/nfpm.deb "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${arch}.deb" \
+    && curl -Lo /tmp/nfpm.deb "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_${arch}.deb" \
     && dpkg -i /tmp/nfpm.deb \
     && rm /tmp/nfpm.deb
 
