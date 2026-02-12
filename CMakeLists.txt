@@ -445,11 +445,10 @@ if (ENABLE_POSITION_INDEPENDENT_BINARY)
     set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
 endif()
 
-if (NOT OS_ANDROID AND OS_LINUX AND NOT ARCH_S390X AND NOT SANITIZE AND NOT ENABLE_POSITION_INDEPENDENT_BINARY)
+if (NOT OS_ANDROID AND OS_LINUX AND NOT SANITIZE AND NOT ENABLE_POSITION_INDEPENDENT_BINARY)
     # Using '-no-pie' builds executables with fixed addresses, resulting in slightly more efficient code
     # and keeping binary addresses constant even with ASLR enabled.
     # Disabled on Android as it requires PIE: https://source.android.com/docs/security/enhancements#android-5
-    # Disabled on IBM S390X due to build issues with 'no-pie'
     # Disabled with sanitizers to avoid issues with maximum relocation size: https://github.com/ClickHouse/ClickHouse/pull/49145
     set (CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -fno-pie")
     set (CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -fno-pie")
