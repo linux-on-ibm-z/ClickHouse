@@ -34,6 +34,7 @@ class RunnerLabels:
     ARM_SMALL_MEM = ["self-hosted", "arm-small-mem"]
     STYLE_CHECK_AMD = ["self-hosted", "style-checker"]
     STYLE_CHECK_ARM = ["self-hosted", "style-checker-aarch64"]
+    STYLE_CHECK_S390X = ["self-hosted", "style-checker-s390x"]
 
 
 class CIFiles:
