@@ -668,6 +668,16 @@ class JobConfigs:
                 ArtifactNames.CH_ARM_RELEASE,
             ],
         ),
+        Job.ParamSet(
+            parameter="s390x_release",
+            runs_on=RunnerLabels.STYLE_CHECK_S390X,
+            requires=[
+                ArtifactNames.DEB_S390X_RELEASE,
+                ArtifactNames.RPM_S390X_RELEASE,
+                ArtifactNames.TGZ_S390X_RELEASE,
+                ArtifactNames.CH_S390X_RELEASE,
+            ],
+        ),
     )
     stateless_tests_flaky_pr_jobs = common_ft_job_config.parametrize(
         Job.ParamSet(

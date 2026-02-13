@@ -74,6 +74,7 @@ for _warmup_type, _release_type in PR_CACHE_WARMUP_TO_RELEASE.items():
 BUILD_TYPE_TO_DEB_PACKAGE_TYPE = {
     BuildTypes.AMD_RELEASE: "release",
     BuildTypes.ARM_RELEASE: "release",
+    BuildTypes.S390X_RELEASE: "release",
 }
 
 

@@ -36,6 +36,7 @@ class RunnerLabels:
     MACOS_AMD_SMALL = ["self-hosted", "amd_macos_m1"]
     STYLE_CHECK_AMD = ["self-hosted", "style-checker"]
     STYLE_CHECK_ARM = ["self-hosted", "style-checker-aarch64"]
+    STYLE_CHECK_S390X = ["self-hosted", "style-checker-s390x"]
     RELEASE_RUNNER = ["self-hosted", "release-runner"]
 
 
