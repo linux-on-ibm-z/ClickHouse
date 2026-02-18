@@ -81,7 +81,7 @@ template <is_decimal T>
 void ColumnDecimal<T>::deserializeAndInsertFromArena(ReadBuffer & in, const IColumn::SerializationSettings *)
 {
     T dec;
-    readBinaryLittleEndian(dec, in);
+    readBinary(dec, in);
     data.push_back(std::move(dec));
 }
 

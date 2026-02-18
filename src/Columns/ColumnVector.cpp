@@ -61,7 +61,7 @@ template <typename T>
 void ColumnVector<T>::deserializeAndInsertFromArena(ReadBuffer & in, const IColumn::SerializationSettings *)
 {
     T element;
-    readBinaryLittleEndian<T>(element, in);
+    readBinary(element, in);
     data.emplace_back(std::move(element));
 }
 

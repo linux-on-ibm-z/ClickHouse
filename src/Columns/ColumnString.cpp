@@ -316,7 +316,7 @@ void ColumnString::batchSerializeValueIntoMemory(std::vector<char *> & memories,
 void ColumnString::deserializeAndInsertFromArena(ReadBuffer & in, const IColumn::SerializationSettings * settings)
 {
     size_t string_size;
-    readBinaryLittleEndian<size_t>(string_size, in);
+    readBinary<size_t>(string_size, in);
 
     bool serialize_string_with_zero_byte = settings && settings->serialize_string_with_zero_byte;
     const size_t old_size = chars.size();
@@ -331,7 +331,7 @@ void ColumnString::deserializeAndInsertFromArena(ReadBuffer & in, const IColumn:
 void ColumnString::skipSerializedInArena(ReadBuffer & in) const
 {
     size_t string_size;
-    readBinaryLittleEndian<size_t>(string_size, in);
+    readBinary<size_t>(string_size, in);
     in.ignore(string_size);
 }
 
