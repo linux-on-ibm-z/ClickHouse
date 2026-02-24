@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Access/Common/AccessType.h>
+#include <base/unaligned.h>
 #include <bitset>
 #include <cstring>
 #include <vector>
@@ -73,7 +74,24 @@ public:
 
     friend bool operator ==(const AccessFlags & left, const AccessFlags & right) { return left.flags == right.flags; }
     friend bool operator !=(const AccessFlags & left, const AccessFlags & right) { return !(left == right); }
-    friend bool operator <(const AccessFlags & left, const AccessFlags & right) { return memcmp(&left.flags, &right.flags, sizeof(Flags)) < 0; }
+    friend bool operator <(const AccessFlags & left, const AccessFlags & right)
+    {
+        if constexpr (std::endian::native == std::endian::big)
+        {
+            uint64_t cmpl, cmpr;
+            for (int i = 0; i < 4; ++i)
+            {
+                reverseMemcpy(&cmpl, &left.flags + (i*8), 8);
+                reverseMemcpy(&cmpr, &right.flags + (i*8), 8);
+                if (cmpl == cmpr)
+                    continue;
+                return cmpl < cmpr;
+            }
+            return false;
+        }
+        else
+            return memcmp(&left.flags, &right.flags, sizeof(Flags)) < 0;
+    }
     friend bool operator >(const AccessFlags & left, const AccessFlags & right) { return right < left; }
     friend bool operator <=(const AccessFlags & left, const AccessFlags & right) { return !(right < left); }
     friend bool operator >=(const AccessFlags & left, const AccessFlags & right) { return !(left < right); }
