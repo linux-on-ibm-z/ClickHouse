@@ -1,14 +1,27 @@
 #include <Storages/Statistics/StatisticsCountMinSketch.h>
+#include <Common/FieldVisitors.h>
 #include <DataTypes/DataTypeLowCardinality.h>
 #include <DataTypes/DataTypeNullable.h>
 #include <IO/ReadHelpers.h>
 #include <IO/WriteHelpers.h>
 #include <Interpreters/convertFieldToType.h>
+#include <base/bit_cast.h>
 
 #if USE_DATASKETCHES
 
 namespace DB
 {
+
+template <typename To>
+class FieldVisitorBitCast : public StaticVisitor<To>
+{
+public:
+    template <typename From>
+    To operator() (DecimalField<From> & x) const { return bit_cast<To>(x.getValue()); }
+
+    template <typename From>
+    To operator()(const From & x) const { return bit_cast<To>(x); }
+};
 
 namespace ErrorCodes
 {
@@ -44,7 +57,44 @@ Float64 StatisticsCountMinSketch::estimateEqual(const Field & val) const
         return 0;
 
     if (data_type->isValueRepresentedByNumber())
-        return sketch.get_estimate(&val_converted, data_type->getSizeOfValueInMemory());
+    {
+        if (val_converted.getType() == Field::Types::Float64)
+        {
+            auto getEstimate = [&s = sketch, &val_converted]<typename To>() {
+                To v = To(val_converted.safeGet<Float64>());
+                return s.get_estimate(&v, sizeof(To));
+            };
+
+            if (data_type->getColumnType() == TypeIndex::BFloat16)
+                return getEstimate.template operator()<BFloat16>();
+            if (data_type->getColumnType() == TypeIndex::Float32)
+                return getEstimate.template operator()<Float32>();
+        }
+        if constexpr (std::endian::native == std::endian::big)
+        {
+            auto getEstimate = [&s = sketch, &val_converted]<typename To>(const FieldVisitorBitCast<To> visitor) {
+                To v = applyVisitor(visitor, val_converted);
+                return s.get_estimate(&v, sizeof(To));
+            };
+
+            size_t memSize = data_type->getSizeOfValueInMemory();
+            if (memSize == sizeof(UInt256))
+                return getEstimate(FieldVisitorBitCast<UInt256>());
+            if (memSize == sizeof(UInt128))
+                return getEstimate(FieldVisitorBitCast<UInt128>());
+            if (memSize == sizeof(UInt64))
+                return getEstimate(FieldVisitorBitCast<UInt64>());
+            if (memSize == sizeof(UInt32))
+                return getEstimate(FieldVisitorBitCast<UInt32>());
+            if (memSize == sizeof(UInt16))
+                return getEstimate(FieldVisitorBitCast<UInt16>());
+            if (memSize == sizeof(UInt8))
+                return getEstimate(FieldVisitorBitCast<UInt8>());
+
+            throw Exception(ErrorCodes::LOGICAL_ERROR, "Statistics 'countmin' does not support estimate data type of {} on big endian platforms", data_type->getName());
+        } else
+            return sketch.get_estimate(&val_converted, data_type->getSizeOfValueInMemory());
+    }
 
     if (isStringOrFixedString(data_type))
         return sketch.get_estimate(val.safeGet<String>());

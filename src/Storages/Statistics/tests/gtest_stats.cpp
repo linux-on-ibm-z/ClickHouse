@@ -4,6 +4,9 @@
 #include <Common/tests/gtest_global_register.h>
 
 #include <Columns/IColumn.h>
+#include <DataTypes/DataTypesDecimal.h>
+#include <DataTypes/DataTypeFactory.h>
+#include <DataTypes/DataTypeLowCardinality.h>
 #include <DataTypes/DataTypesNumber.h>
 #include <Interpreters/convertFieldToType.h>
 #include <Storages/MergeTree/RPNBuilder.h>
@@ -54,6 +57,81 @@ TEST(Statistics, TDigestLessThan)
 
     std::reverse(data.begin(), data.end());
     test_less_than(data, {-1, 1e9, 50000.0, 3000.0, 30.0}, {0, 100000, 50000, 3000, 30}, {0, 0, 0.001, 0.001, 0.001});
+}
+
+TEST(Statistics, CountMinManyDataTypes)
+{
+    auto test_f = [](const DataTypePtr & data_type, const std::function<void(MutableColumnPtr&, std::size_t)>& insertValue, const String & expression, UInt64 real_result, Float64 eps = 0.001)
+    {
+        MutableColumnPtr col = data_type->createColumn();
+        for (std::size_t i = 0; i < 10000; i++)
+        {
+            insertValue(col, i);
+        }
+
+        auto mock_statistics = [&](const String & column_name)
+        {
+            ColumnStatisticsDescription mock_description;
+            mock_description.data_type = data_type;
+            std::vector<StatisticsType> stats_type_to_create({StatisticsType::CountMinSketch});
+            for (auto stats_type : stats_type_to_create)
+            {
+                mock_description.types_to_desc.emplace(stats_type, SingleStatisticsDescription(stats_type, nullptr));
+            }
+            ColumnDescription column_desc;
+            column_desc.name = column_name;
+            column_desc.type = data_type;
+            column_desc.statistics = mock_description;
+            return MergeTreeStatisticsFactory::instance().get(column_desc);
+        };
+        ColumnStatisticsPtr stats = mock_statistics("col");
+        stats->build(std::move(col));
+
+        ConditionSelectivityEstimator estimator;
+        estimator.addStatistics(stats);
+        estimator.incrementRowCount(10000);
+
+        ParserExpressionWithOptionalAlias exp_parser(false);
+        ContextPtr context = getContext().context;
+        RPNBuilderTreeContext tree_context(context, Block{{ DataTypeUInt8().createColumnConstWithDefaultValue(1), std::make_shared<DataTypeUInt8>(), "_dummy" }}, {});
+        ASTPtr ast = parseQuery(exp_parser, expression, 10000, 10000, 10000);
+        RPNBuilderTreeNode node(ast.get(), tree_context);
+        auto estimate_result = estimator.estimateRelationProfile(node);
+        std::cout << data_type->getName() << " (" << expression << ") " << real_result << " "<< estimate_result.rows << std::endl;
+        EXPECT_LT(std::abs(real_result - estimate_result.rows), 10000 * eps);
+    };
+
+    ///
+    test_f(std::make_shared<DataTypeUInt8>(), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? UInt8(125) : UInt8(250)); }, "col = 125", 5000);
+    test_f(std::make_shared<DataTypeUInt16>(), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? UInt16(125) : UInt16(250)); }, "col = 125", 5000);
+    test_f(std::make_shared<DataTypeUInt32>(), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? UInt32(125) : UInt32(250)); }, "col = 125", 5000);
+    test_f(std::make_shared<DataTypeUInt64>(), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? UInt64(125) : UInt64(250)); }, "col = 125", 5000);
+    test_f(std::make_shared<DataTypeUInt128>(), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? UInt128(125) : UInt128(250)); }, "col = 125", 5000);
+    test_f(std::make_shared<DataTypeUInt256>(), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? UInt256(125) : UInt256(250)); }, "col = 125", 5000);
+
+    test_f(std::make_shared<DataTypeInt8>(), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? Int8(-125) : Int8(250)); }, "col = -125", 5000);
+    test_f(std::make_shared<DataTypeInt16>(), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? Int16(-125) : Int16(250)); }, "col = -125", 5000);
+    test_f(std::make_shared<DataTypeInt32>(), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? Int32(-125) : Int32(250)); }, "col = -125", 5000);
+    test_f(std::make_shared<DataTypeInt64>(), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? Int64(-125) : Int64(250)); }, "col = -125", 5000);
+    test_f(std::make_shared<DataTypeInt128>(), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? Int128(-125) : Int128(250)); }, "col = -125", 5000);
+    test_f(std::make_shared<DataTypeInt256>(), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? Int256(-125) : Int256(250)); }, "col = -125", 5000);
+
+    test_f(std::make_shared<DataTypeBFloat16>(), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? BFloat16(125) : BFloat16(250)); }, "col = 125.0", 5000);
+    test_f(std::make_shared<DataTypeBFloat16>(), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? BFloat16(-125) : BFloat16(250)); }, "col = -125.0", 5000);
+    test_f(std::make_shared<DataTypeFloat32>(), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? Float32(125) : Float32(250)); }, "col = 125.0", 5000);
+    test_f(std::make_shared<DataTypeFloat32>(), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? Float32(-125) : Float32(250)); }, "col = -125.0", 5000);
+    test_f(std::make_shared<DataTypeFloat64>(), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? Float64(125) : Float64(250)); }, "col = 125.0", 5000);
+    test_f(std::make_shared<DataTypeFloat64>(), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? Float64(-125) : Float64(250)); }, "col = -125.0", 5000);
+
+    test_f(std::make_shared<DataTypeDecimal32>(3, 0), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? Decimal32(125) : Decimal32(250)); }, "col = 125", 5000);
+    test_f(std::make_shared<DataTypeDecimal64>(3, 0), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? Decimal64(125) : Decimal64(250)); }, "col = 125", 5000);
+    test_f(std::make_shared<DataTypeDecimal128>(3, 0), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? Decimal128(125) : Decimal128(250)); }, "col = 125", 5000);
+    test_f(std::make_shared<DataTypeDecimal256>(3, 0), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? Decimal256(125) : Decimal256(250)); }, "col = 125", 5000);
+
+    test_f(DataTypeFactory::instance().get("Bool"), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? UInt8(1) : UInt8(0)); }, "col = 1", 5000);
+    test_f(std::make_shared<DataTypeDateTime64>(3, "UTC"), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? Decimal64(187618332000) : Decimal64(200000000000)); }, "col = 187618332", 5000);
+
+    test_f(std::make_shared<DataTypeLowCardinality>(std::make_shared<DataTypeUInt32>()), [](MutableColumnPtr & col, std::size_t i) { col->insert(i % 2 == 0 ? UInt32(125) : UInt32(250)); }, "col = 125", 5000);
 }
 
 TEST(Statistics, Estimator)
