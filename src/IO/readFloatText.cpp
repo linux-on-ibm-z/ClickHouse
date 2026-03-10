@@ -331,17 +331,8 @@ parseFloatFromRange(T & x, const char * first, const char * last, fast_float::ch
     }
 
     const bool is_short = length <= max_short_float_chars;
-    if constexpr (std::endian::native == std::endian::little)
-        return is_short ? fast_float::from_chars(first, last, x, fmt)
-                        : fromCharsLong(first, last, x, fmt);
-    else
-    {
-        Float64 wide = 0.0;
-        auto answer = is_short ? fast_float::from_chars(first, last, wide, fmt)
-                               : fromCharsLong(first, last, wide, fmt);
-        x = static_cast<T>(wide);
-        return answer;
-    }
+    return is_short ? fast_float::from_chars(first, last, x, fmt)
+                    : fromCharsLong(first, last, x, fmt);
 }
 
 
