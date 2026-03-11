@@ -125,6 +125,7 @@ List of available tags:
 | `no-cpu-x86_64` |||
 | `no-cpu-aarch64` |||
 | `no-cpu-ppc64le` |||
+| `no-cpu-s390x` |||
 | `no-s3-storage` |||
 
 In addition to above settings, you can use `USE_*` flags from `system.build_options` to define usage of particular ClickHouse features.
