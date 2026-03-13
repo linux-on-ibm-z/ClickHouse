@@ -1714,8 +1714,16 @@ static void NO_SANITIZE_UNDEFINED convertFromUInt128toIPv6(ColVecToData & vec_to
 
     for (size_t i = 0; i < input_rows_count; i++)
     {
-        vec_to[i].toUnderType().items[1] = std::byteswap(vec_from[i].items[0]);
-        vec_to[i].toUnderType().items[0] = std::byteswap(vec_from[i].items[1]);
+        if constexpr (std::endian::native == std::endian::little)
+        {
+            vec_to[i].toUnderType().items[1] = std::byteswap(vec_from[i].items[0]);
+            vec_to[i].toUnderType().items[0] = std::byteswap(vec_from[i].items[1]);
+        }
+        else
+        {
+            vec_to[i].toUnderType().items[0] = vec_from[i].items[0];
+            vec_to[i].toUnderType().items[1] = vec_from[i].items[1];
+        }
     }
 }
 
@@ -1728,8 +1736,16 @@ static void NO_SANITIZE_UNDEFINED convertFromIPv6ToUInt128(ColVecToData & vec_to
 
     for (size_t i = 0; i < input_rows_count; i++)
     {
-        vec_to[i].items[1] = std::byteswap(vec_from[i].toUnderType().items[0]);
-        vec_to[i].items[0] = std::byteswap(vec_from[i].toUnderType().items[1]);
+        if constexpr (std::endian::native == std::endian::little)
+        {
+            vec_to[i].items[1] = std::byteswap(vec_from[i].toUnderType().items[0]);
+            vec_to[i].items[0] = std::byteswap(vec_from[i].toUnderType().items[1]);
+        }
+        else
+        {
+            vec_to[i].items[0] = vec_from[i].toUnderType().items[0];
+            vec_to[i].items[1] = vec_from[i].toUnderType().items[1];
+        }
     }
 }
 
