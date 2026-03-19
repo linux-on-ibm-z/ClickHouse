@@ -222,3 +222,26 @@ GTEST_TEST(Field, CompareUUID)
     ASSERT_TRUE(one == one_again);
     ASSERT_FALSE(one == two);
 }
+
+GTEST_TEST(Field, MoveBoolFieldBigEndian)
+{
+    Field f{true};
+    ASSERT_EQ(f.getType(), Field::Types::Bool);
+    ASSERT_EQ(f.safeGet<bool>(), true);
+    ASSERT_EQ(f.safeGet<UInt64>(), 1);
+
+    // On big endian platforms, before the change to properly cast the
+    // storage type in Field::assignConcrete, this assignment would not
+    // work and f would remain true for both f.safeGet<bool>() and
+    // f.safeGet<UInt64>().
+    // It happened because Bools are stored in UInt64 storage but because
+    // of the improper cast, only the first byte of the storage was modified.
+    // On little endian platforms, that happened to work since the first byte
+    // holds the least significant bits of the UInt64 storage. But on big
+    // endian platforms it only modified the most significant byte and left
+    // the UInt64 value in memory unchanged.
+    f = Field{false};
+    ASSERT_EQ(f.getType(), Field::Types::Bool);
+    ASSERT_EQ(f.safeGet<bool>(), false);
+    ASSERT_EQ(f.safeGet<UInt64>(), 0);
+}

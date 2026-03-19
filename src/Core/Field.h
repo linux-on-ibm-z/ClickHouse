@@ -604,9 +604,10 @@ private:
     template <typename T>
     void assignConcrete(T && x)
     {
-        using JustT = std::decay_t<T>;
-        chassert(which == TypeToEnum<JustT>::value);
-        JustT * MAY_ALIAS ptr = reinterpret_cast<JustT *>(&storage);
+        using UnqualifiedType = std::decay_t<T>;
+        chassert(which == TypeToEnum<UnqualifiedType>::value);
+        using StorageType = NearestFieldType<UnqualifiedType>;
+        StorageType * MAY_ALIAS ptr = reinterpret_cast<StorageType *>(&storage);
         *ptr = std::forward<T>(x);
     }
 
