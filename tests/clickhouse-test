@@ -1320,6 +1320,13 @@ class TestCase:
         if is_old_analyzer_used(args):
             file_extentions = [".oldanalyzer.reference", *file_extentions]
 
+        # Support cpu specific reference files to account for things like endian differences
+        # cpu extensions will look like eg.: ".cpu-s390x.reference"
+        cpu_build_flags = list(filter(lambda x: x.startswith(BuildFlags.CPU_PREFIX), args.build_flags))
+        if len(cpu_build_flags) > 0:
+            cpu_specific_file_extentions = [f".{cpu}{ext}" for cpu in cpu_build_flags for ext in file_extentions]
+            file_extentions = [*cpu_specific_file_extentions, *file_extentions]
+
         for ext in file_extentions:
             reference_file = os.path.join(suite_dir, name) + ext
             if os.path.isfile(reference_file):
@@ -2922,6 +2929,7 @@ class BuildFlags:
     RELEASE = "release"
     ORDINARY_DATABASE = "ordinary-database"
     POLYMORPHIC_PARTS = "polymorphic-parts"
+    CPU_PREFIX = "cpu-"
 
 
 # Release and non-sanitizer build
@@ -2992,7 +3000,7 @@ def collect_build_flags(args):
         "SELECT value FROM system.build_options WHERE name = 'SYSTEM_PROCESSOR' LIMIT 1",
     ).strip()
     if system_processor:
-        result.append(f"cpu-{system_processor.decode().lower()}")
+        result.append(f"{BuildFlags.CPU_PREFIX}{system_processor.decode().lower()}")
 
     return result
 
