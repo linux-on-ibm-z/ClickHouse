@@ -242,7 +242,7 @@ class FPCOperation
     static constexpr std::byte DFCM_BIT_1 = DFCM_BIT << 4;
     static constexpr std::byte DFCM_BIT_2 = DFCM_BIT;
     static constexpr UInt32 MAX_ZERO_BYTE_COUNT = 0b111u;
-    static constexpr std::endian ENDIAN = std::endian::little;
+    static constexpr std::endian ENDIAN = std::endian::native;
     static constexpr size_t CHUNK_SIZE = 64;
 
 public:
