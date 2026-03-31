@@ -1,5 +1,9 @@
 # rebuild in #33610
 # docker build -t clickhouse/test-base .
+ARG CCTOOLS_TAG=${CCTOOLS_TAG-"859fb360308eb8ac47ad"}
+
+FROM clickhouse/cctools:${CCTOOLS_TAG} AS cctools
+
 FROM ubuntu:22.04
 
 # ARG for quick switch to a given ubuntu mirror
@@ -43,11 +47,6 @@ RUN apt-get update \
 RUN test -f /usr/bin/llvm-symbolizer-${LLVM_VERSION}
 RUN ln -s /usr/bin/llvm-symbolizer-${LLVM_VERSION} /usr/bin/llvm-symbolizer
 
-# Install cmake 3.20+ for Rust support
-# Used https://askubuntu.com/a/1157132 as reference
-RUN curl -s https://apt.kitware.com/keys/kitware-archive-latest.asc | gpg --dearmor - > /etc/apt/trusted.gpg.d/kitware.gpg && \
-    echo "deb [signed-by=/etc/apt/trusted.gpg.d/kitware.gpg] https://apt.kitware.com/ubuntu/ $(lsb_release -cs) main" >> /etc/apt/sources.list.d/kitware.list
-
 RUN apt-get update \
     && apt-get install \
         bash \
@@ -74,10 +73,13 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* /var/cache/debconf /tmp/*
 
 # Note, libmpfr6 is also a requirement for gdb
-COPY --from=clickhouse/cctools:859fb360308eb8ac47ad /opt/gdb /opt/gdb
-ENV PATH="/opt/gdb/bin:${PATH}"
+COPY --from=cctools /opt/gdb /opt/gdb
+COPY --from=cctools /opt/cmake /opt/cmake
+# Give suid to gdb to grant it attach permissions
+RUN chmod u+s /opt/gdb/bin/gdb
+ENV PATH="/opt/cmake/bin:/opt/gdb/bin:${PATH}"
 
-COPY --from=clickhouse/cctools:859fb360308eb8ac47ad \
+COPY --from=cctools \
   /opt/openssl-fips/openssl.cnf \
   /opt/openssl-fips/fipsmodule.cnf \
   /opt/openssl-fips/fips.so \
