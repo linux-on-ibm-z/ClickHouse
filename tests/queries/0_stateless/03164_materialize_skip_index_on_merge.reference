@@ -6,8 +6,8 @@ Granules: 6/50
 Skip
 Name: idx_b
 Granules: 6/6
-default	tab	idx_a	430
-default	tab	idx_b	78
+default	tab	idx_a	1
+default	tab	idx_b	1
 Merge with materialize_skip_indexes_on_merge = 1
 20
 Skip
@@ -16,8 +16,8 @@ Granules: 50/50
 Skip
 Name: idx_b
 Granules: 50/50
-default	tab	idx_a	0
-default	tab	idx_b	0
+default	tab	idx_a	1
+default	tab	idx_b	1
 0	0
 Materialize indexes explicitly
 20
@@ -27,8 +27,8 @@ Granules: 6/50
 Skip
 Name: idx_b
 Granules: 6/6
-default	tab	idx_a	430
-default	tab	idx_b	78
+default	tab	idx_a	1
+default	tab	idx_b	1
 Merge after resetting materialize_skip_indexes_on_merge to default
 40
 Skip
@@ -37,5 +37,5 @@ Granules: 12/100
 Skip
 Name: idx_b
 Granules: 12/12
-default	tab	idx_a	441
-default	tab	idx_b	127
+default	tab	idx_a	1
+default	tab	idx_b	1

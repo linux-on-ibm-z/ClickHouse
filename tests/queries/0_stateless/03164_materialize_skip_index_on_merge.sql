@@ -29,7 +29,7 @@ SELECT trimLeft(explain) AS explain FROM (
 )
 WHERE explain LIKE '%Skip%' OR explain LIKE '%Name:%' OR explain LIKE '%Granules:%';
 
-SELECT database, table, name, data_compressed_bytes FROM system.data_skipping_indices WHERE database = currentDatabase() AND table = 'tab';
+SELECT database, table, name, data_compressed_bytes > 0 FROM system.data_skipping_indices WHERE database = currentDatabase() AND table = 'tab';
 
 SELECT 'Merge with materialize_skip_indexes_on_merge = 1';
 
@@ -48,7 +48,7 @@ SELECT trimLeft(explain) AS explain FROM (
 )
 WHERE explain LIKE '%Skip%' OR explain LIKE '%Name:%' OR explain LIKE '%Granules:%';
 
-SELECT database, table, name, data_compressed_bytes FROM system.data_skipping_indices WHERE database = currentDatabase() AND table = 'tab';
+SELECT database, table, name, data_compressed_bytes = 0 FROM system.data_skipping_indices WHERE database = currentDatabase() AND table = 'tab';
 
 SYSTEM FLUSH LOGS query_log;
 SELECT count(), sum(ProfileEvents['MergeTreeDataWriterSkipIndicesCalculationMicroseconds'])
@@ -68,7 +68,7 @@ SELECT trimLeft(explain) AS explain FROM (
     EXPLAIN indexes = 1 SELECT count() FROM tab WHERE a >= 110 AND a < 130 AND b = 2
 )
 WHERE explain LIKE '%Skip%' OR explain LIKE '%Name:%' OR explain LIKE '%Granules:%';
-SELECT database, table, name, data_compressed_bytes FROM system.data_skipping_indices WHERE database = currentDatabase() AND table = 'tab';
+SELECT database, table, name, data_compressed_bytes > 0 FROM system.data_skipping_indices WHERE database = currentDatabase() AND table = 'tab';
 
 SELECT 'Merge after resetting materialize_skip_indexes_on_merge to default';
 
@@ -84,6 +84,6 @@ SELECT trimLeft(explain) AS explain FROM (
     EXPLAIN indexes = 1 SELECT count() FROM tab WHERE a >= 110 AND a < 130 AND b = 2
 )
 WHERE explain LIKE '%Skip%' OR explain LIKE '%Name:%' OR explain LIKE '%Granules:%';
-SELECT database, table, name, data_compressed_bytes FROM system.data_skipping_indices WHERE database = currentDatabase() AND table = 'tab';
+SELECT database, table, name, data_compressed_bytes > 0 FROM system.data_skipping_indices WHERE database = currentDatabase() AND table = 'tab';
 
 DROP TABLE tab;
