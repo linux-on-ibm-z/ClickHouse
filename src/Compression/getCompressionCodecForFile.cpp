@@ -29,8 +29,8 @@ getCompressionCodecForFile(ReadBuffer & read_buffer, UInt32 & size_compressed, U
     compressed_buffer.resize(header_size);
     read_buffer.readStrict(compressed_buffer.data(), header_size);
     uint8_t method = ICompressionCodec::readMethod(compressed_buffer.data());
-    size_compressed = unalignedLoad<UInt32>(&compressed_buffer[1]);
-    size_decompressed = unalignedLoad<UInt32>(&compressed_buffer[5]);
+    size_compressed = unalignedLoadLittleEndian<UInt32>(&compressed_buffer[1]);
+    size_decompressed = unalignedLoadLittleEndian<UInt32>(&compressed_buffer[5]);
 
     if (size_compressed > DBMS_MAX_COMPRESSED_SIZE)
         throw Exception(
