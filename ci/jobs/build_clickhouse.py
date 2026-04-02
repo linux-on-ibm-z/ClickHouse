@@ -187,7 +187,11 @@ def main():
 
     files = []
     if res and JobStages.BUILD in stages:
-        if build_type == BuildTypes.FUZZERS:
+        if build_type in BUILD_TYPE_TO_DEB_PACKAGE_TYPE:
+            targets = (
+                "clickhouse-bundle clickhouse-odbc-bridge clickhouse-library-bridge"
+            )
+        elif build_type == BuildTypes.FUZZERS:
             targets = "fuzzers"
         elif build_type in (BuildTypes.AMD_TIDY, BuildTypes.ARM_TIDY):
             targets = "-k0 all"
