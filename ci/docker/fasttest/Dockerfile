@@ -1,31 +1,50 @@
 # docker build -t clickhouse/fasttest .
-FROM ubuntu:22.04
+ARG CCTOOLS_AVAILABLE=${CCTOOLS_AVAILABLE-"with-cctools"}
+ARG CCTOOLS_TAG=${CCTOOLS_TAG-"859fb360308eb8ac47ad"}
 
+FROM clickhouse/cctools:${CCTOOLS_TAG} AS cctools
+
+FROM ubuntu:22.04 AS base-with-cctools
+# Note, libmpfr6 is also a requirement for gdb
+COPY --from=cctools /opt/gdb /opt/gdb
+COPY --from=cctools /opt/cmake /opt/cmake
+# Give suid to gdb to grant it attach permissions
+RUN chmod u+s /opt/gdb/bin/gdb
+ENV PATH="/opt/cmake/bin:/opt/gdb/bin:${PATH}"
+
+FROM ubuntu:22.04 AS base-without-cctools
+
+FROM base-${CCTOOLS_AVAILABLE} AS final
 # ARG for quick switch to a given ubuntu mirror
 ARG apt_archive="http://archive.ubuntu.com"
-RUN sed -i "s|http://archive.ubuntu.com|$apt_archive|g" /etc/apt/sources.list
+RUN sed -i -e "s|http://archive.ubuntu.com|$apt_archive|g" -e "s|https://archive.ubuntu.com|$apt_archive|g" /etc/apt/sources.list
 ARG LLVM_APT_VERSION="1:19.1.4"
 
 ENV DEBIAN_FRONTEND=noninteractive LLVM_VERSION=19
+
+# We need ca-certificates first to be able to update all repos. This is why it's run twice
+RUN apt-get update \
+    && apt-get install ca-certificates --yes --no-install-recommends --verbose-versions
 
 RUN apt-get update \
     && apt-get install \
         apt-transport-https \
         apt-utils \
-        ca-certificates \
         curl \
+        netcat-openbsd \
         gnupg \
         lsb-release \
         wget \
         git \
+        xxd \
+        time \
         --yes --no-install-recommends --verbose-versions \
     && export LLVM_PUBKEY_HASH="bda960a8da687a275a2078d43c111d66b1c6a893a3275271beedf266c1ff4a0cdecb429c7a5cccf9f486ea7aa43fd27f" \
     && wget -nv -O /tmp/llvm-snapshot.gpg.key https://apt.llvm.org/llvm-snapshot.gpg.key \
     && echo "${LLVM_PUBKEY_HASH} /tmp/llvm-snapshot.gpg.key" | sha384sum -c \
     && apt-key add /tmp/llvm-snapshot.gpg.key \
     && export CODENAME="$(lsb_release --codename --short | tr 'A-Z' 'a-z')" \
-    && echo "deb https://apt.llvm.org/${CODENAME}/ llvm-toolchain-${CODENAME}-${LLVM_VERSION} main" >> \
-        /etc/apt/sources.list \
+    && echo "deb https://apt.llvm.org/${CODENAME}/ llvm-toolchain-${CODENAME}-${LLVM_VERSION} main" >> /etc/apt/sources.list.d/llvm.list \
     && apt-get update \
     && apt-get satisfy --yes --no-install-recommends "llvm-${LLVM_VERSION} (>= ${LLVM_APT_VERSION})" \
     && apt-get clean \
@@ -45,6 +64,7 @@ RUN apt-get update \
         libclang-rt-${LLVM_VERSION}-dev \
         lld-${LLVM_VERSION} \
         llvm-${LLVM_VERSION}-dev \
+        libmpfr6 \
         lsof \
         ninja-build \
         python3 \
@@ -62,11 +82,6 @@ RUN apt-get update \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/debconf /tmp/*
 
-COPY --from=clickhouse/cctools:0d6b90a7a490 /opt/gdb /opt/gdb
-# Give suid to gdb to grant it attach permissions
-RUN chmod u+s /opt/gdb/bin/gdb
-ENV PATH="/opt/gdb/bin:${PATH}"
-
 # This symlink is required by gcc to find the lld linker
 RUN ln -s /usr/bin/lld-${LLVM_VERSION} /usr/bin/ld.lld
 # FIXME: workaround for "The imported target "merge-fdata" references the file" error
@@ -74,22 +89,34 @@ RUN ln -s /usr/bin/lld-${LLVM_VERSION} /usr/bin/ld.lld
 RUN sed -i '/_IMPORT_CHECK_FILES_FOR_\(mlir-\|llvm-bolt\|merge-fdata\|MLIR\)/ {s|^|#|}' /usr/lib/llvm-${LLVM_VERSION}/lib/cmake/llvm/LLVMExports-*.cmake
 
 ARG TARGETARCH
-ARG SCCACHE_VERSION=v0.7.7
+ARG SCCACHE_VERSION=v0.14.0
 ENV SCCACHE_IGNORE_SERVER_IO_ERROR=1
 # sccache requires a value for the region. So by default we use The Default Region
 ENV SCCACHE_REGION=us-east-1
-RUN arch=${TARGETARCH} \
+RUN arch=${TARGETARCH} && rlib=musl \
   && case $arch in \
     amd64) rarch=x86_64 ;; \
     arm64) rarch=aarch64 ;; \
+    *)     rarch=${TARGETARCH} && rlib=gnu ;; \
   esac \
-  && curl -Ls "https://github.com/mozilla/sccache/releases/download/$SCCACHE_VERSION/sccache-$SCCACHE_VERSION-$rarch-unknown-linux-musl.tar.gz" | \
+  && curl -Ls "https://github.com/mozilla/sccache/releases/download/$SCCACHE_VERSION/sccache-$SCCACHE_VERSION-$rarch-unknown-linux-$rlib.tar.gz" | \
     tar xz -C /tmp \
-  && mv "/tmp/sccache-$SCCACHE_VERSION-$rarch-unknown-linux-musl/sccache" /usr/bin \
-  && rm "/tmp/sccache-$SCCACHE_VERSION-$rarch-unknown-linux-musl" -r
+  && mv "/tmp/sccache-$SCCACHE_VERSION-$rarch-unknown-linux-$rlib/sccache" /usr/bin \
+  && rm "/tmp/sccache-$SCCACHE_VERSION-$rarch-unknown-linux-$rlib" -r;
 
 COPY requirements.txt /
-RUN pip3 install --no-cache-dir -r /requirements.txt
+RUN if [ "${TARGETARCH}" = "s390x" ]; then \
+    apt-get update \
+    && apt-get install libopenblas-dev pkg-config build-essential python3-dev gfortran \
+      python3-pkg-resources python3-setuptools --yes --no-install-recommends \
+    && pip3 install meson \
+    && pip3 install pybind11 \
+    && pip3 install Cython \
+    && pip3 install pythran \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /var/cache/debconf /tmp/*; \
+  fi \
+  && pip3 install --no-cache-dir -r /requirements.txt
 
 # chmod 777 to make the container user independent
 RUN mkdir -p /var/lib/clickhouse \
@@ -105,9 +132,9 @@ RUN groupadd --system --gid 1000 clickhouse \
 
 # TODO move nfpm to docker that will do packaging
 ARG TARGETARCH
-ARG NFPM_VERSION=2.20.0
+ARG NFPM_VERSION=2.44.1
 RUN arch=${TARGETARCH:-amd64} \
-    && curl -Lo /tmp/nfpm.deb "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${arch}.deb" \
+    && curl -Lo /tmp/nfpm.deb "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_${arch}.deb" \
     && dpkg -i /tmp/nfpm.deb \
     && rm /tmp/nfpm.deb
 
