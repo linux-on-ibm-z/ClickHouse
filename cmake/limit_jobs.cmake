@@ -42,9 +42,16 @@ endif ()
 # But use 2 parallel jobs, since:
 # - this is what llvm does
 # - and I've verfied that lld-11 does not use all available CPU time (in peak) while linking one binary
-if (CMAKE_BUILD_TYPE_UC STREQUAL "RELWITHDEBINFO" AND ENABLE_THINLTO AND PARALLEL_LINK_JOBS GREATER 2)
-    message(STATUS "ThinLTO provides its own parallel linking - limiting parallel link jobs to 2.")
-    set (PARALLEL_LINK_JOBS 2)
+if (CMAKE_BUILD_TYPE_UC STREQUAL "RELWITHDEBINFO" AND ENABLE_THINLTO)
+
+    if (NOT ARCH_S390X AND PARALLEL_LINK_JOBS GREATER 2)
+        message(STATUS "ThinLTO provides its own parallel linking - limiting parallel link jobs to 2.")
+        set (PARALLEL_LINK_JOBS 2)
+    endif()
+    if (ARCH_S390X AND PARALLEL_LINK_JOBS GREATER 1)
+        message(STATUS "ThinLTO provides its own parallel linking - limiting parallel link jobs to 1 on s390x.")
+        set (PARALLEL_LINK_JOBS 1)
+    endif()
 endif()
 
 message(STATUS "Building sub-tree with ${PARALLEL_COMPILE_JOBS} compile jobs and ${PARALLEL_LINK_JOBS} linker jobs (system: ${NUMBER_OF_LOGICAL_CORES} cores, ${TOTAL_PHYSICAL_MEMORY} MB RAM, 'OFF' means the native core count).")
