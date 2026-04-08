@@ -743,7 +743,7 @@ template <typename Char>
 inline int memcmpSmallAllowOverflow15(const Char * a, size_t a_size, const Char * b, size_t b_size)
 {
     if (auto res = memcmp(a, b, std::min(a_size, b_size)))
-        return res;
+        return std::clamp(res, -1, 1);
     else
         return detail::cmp(a_size, b_size);
 }
@@ -779,7 +779,7 @@ inline int memcmpSmallLikeZeroPaddedAllowOverflow15(const Char * a, size_t a_siz
     }
 
     if (auto res = memcmp(a, b, min_size))
-        return res;
+        return std::clamp(res, -1, 1);
 
     for (size_t i = min_size; i < max_size; ++i)
         if (longest[i] != 0)
@@ -791,7 +791,7 @@ inline int memcmpSmallLikeZeroPaddedAllowOverflow15(const Char * a, size_t a_siz
 template <typename Char>
 inline int memcmpSmallAllowOverflow15(const Char * a, const Char * b, size_t size)
 {
-    return memcmp(a, b, size);
+    return std::clamp(memcmp(a, b, size), -1, 1);
 }
 
 template <typename Char>
@@ -803,13 +803,13 @@ inline bool memequalSmallAllowOverflow15(const Char * a, size_t a_size, const Ch
 template <typename Char>
 inline int memcmpSmallMultipleOf16(const Char * a, const Char * b, size_t size)
 {
-    return memcmp(a, b, size);
+    return std::clamp(memcmp(a, b, size), -1, 1);
 }
 
 template <typename Char>
 inline int memcmp16(const Char * a, const Char * b)
 {
-    return memcmp(a, b, 16);
+    return std::clamp(memcmp(a, b, 16), -1, 1);
 }
 
 inline bool memequal16(const void * a, const void * b)
