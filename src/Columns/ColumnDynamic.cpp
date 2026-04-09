@@ -14,6 +14,7 @@
 #include <Processors/Transforms/ColumnGathererTransform.h>
 #include <IO/WriteBufferFromVector.h>
 #include <IO/ReadBufferFromMemory.h>
+#include <Common/transformEndianness.h>
 #include <IO/ReadHelpers.h>
 #include <IO/WriteBufferFromString.h>
 #include <Formats/FormatSettings.h>
@@ -764,7 +765,10 @@ StringRef ColumnDynamic::serializeValueIntoArena(size_t n, Arena & arena, const 
 
     char * pos = arena.allocContinue(sizeof(UInt8) + sizeof(size_t) + type_and_value.size, begin);
     memcpy(pos, &null_bit, sizeof(UInt8));
-    memcpy(pos + sizeof(UInt8), &type_and_value.size, sizeof(size_t));
+    /// Write type_and_value.size in little-endian to match readBinaryLittleEndian in deserializeAndInsertFromArena.
+    size_t type_and_value_size_le = type_and_value.size;
+    transformEndianness<std::endian::little>(type_and_value_size_le);
+    memcpy(pos + sizeof(UInt8), &type_and_value_size_le, sizeof(size_t));
     memcpy(pos + sizeof(UInt8) + sizeof(size_t), type_and_value.data, type_and_value.size);
     res.data = pos;
     res.size = sizeof(UInt8) + sizeof(size_t) + type_and_value.size;
