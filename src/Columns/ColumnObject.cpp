@@ -12,6 +12,7 @@
 #include <Common/SipHash.h>
 #include <Common/UnorderedSetWithMemoryTracking.h>
 #include <Common/logger_useful.h>
+#include <Common/transformEndianness.h>
 
 namespace DB
 {
@@ -1118,7 +1119,10 @@ void ColumnObject::serializeDynamicPathsAndSharedDataIntoArena(size_t n, Arena &
         num_paths += !column->isNullAt(n);
 
     char * pos = arena.allocContinue(sizeof(size_t), begin);
-    memcpy(pos, &num_paths, sizeof(size_t));
+    /// Write num_paths in little-endian to match readBinaryLittleEndian in deserializeDynamicPathsAndSharedDataFromArena.
+    size_t num_paths_le = num_paths;
+    transformEndianness<std::endian::little>(num_paths_le);
+    memcpy(pos, &num_paths_le, sizeof(size_t));
     res = std::string_view{pos - res.size(), res.size() + sizeof(size_t)};
 
     auto dynamic_paths_it = sorted_dynamic_paths.begin();
@@ -1160,9 +1164,15 @@ void ColumnObject::serializePathAndValueIntoArena(DB::Arena & arena, const char 
     size_t value_size = value.size();
     size_t path_size = path.size();
     char * pos = arena.allocContinue(sizeof(size_t) + path_size + sizeof(size_t) + value_size, begin);
-    memcpy(pos, &path_size, sizeof(size_t));
+    /// Write path_size and value_size in little-endian to match readBinaryLittleEndian in
+    /// deserializeDynamicPathsAndSharedDataFromArena.
+    auto path_size_le = path_size;
+    transformEndianness<std::endian::little>(path_size_le);
+    memcpy(pos, &path_size_le, sizeof(size_t));
     memcpy(pos + sizeof(size_t), path.data(), path_size);
-    memcpy(pos + sizeof(size_t) + path_size, &value_size, sizeof(size_t));
+    auto value_size_le = value_size;
+    transformEndianness<std::endian::little>(value_size_le);
+    memcpy(pos + sizeof(size_t) + path_size, &value_size_le, sizeof(size_t));
     memcpy(pos + sizeof(size_t) + path_size + sizeof(size_t), value.data(), value_size);
     res = std::string_view{pos - res.size(), res.size() + sizeof(size_t) + path_size + sizeof(size_t) + value_size};
 }

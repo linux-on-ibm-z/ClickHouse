@@ -1,6 +1,7 @@
 #include <Columns/ColumnString.h>
 
 #include <cstring>
+#include <Common/transformEndianness.h>
 #include <Columns/Collator.h>
 #include <Columns/findEqualRangeEndAssumeSorted.h>
 #include <Columns/ColumnsCommon.h>
@@ -321,7 +322,10 @@ std::string_view ColumnString::serializeValueIntoArena(size_t n, Arena & arena, 
 
     auto result_size = sizeof(string_size) + string_size;
     char * pos = arena.allocContinue(result_size, begin);
-    memcpy(pos, &string_size, sizeof(string_size));
+    /// Write string_size in little-endian to match readBinaryLittleEndian in deserializeAndInsertFromArena.
+    auto string_size_le = string_size;
+    transformEndianness<std::endian::little>(string_size_le);
+    memcpy(pos, &string_size_le, sizeof(string_size_le));
     memcpy(pos + sizeof(string_size), &chars[offset], string_size - serialize_string_with_zero_byte);
     if (serialize_string_with_zero_byte)
         *(pos + sizeof(string_size) + string_size - 1) = 0;
@@ -334,7 +338,10 @@ ALWAYS_INLINE char * ColumnString::serializeValueIntoMemory(size_t n, char * mem
     size_t string_size = sizeAt(n) + serialize_string_with_zero_byte;
     size_t offset = offsetAt(n);
 
-    memcpy(memory, &string_size, sizeof(string_size));
+    /// Write string_size in little-endian to match readBinaryLittleEndian in deserializeAndInsertFromArena.
+    auto string_size_le = string_size;
+    transformEndianness<std::endian::little>(string_size_le);
+    memcpy(memory, &string_size_le, sizeof(string_size_le));
     memory += sizeof(string_size);
     memcpy(memory, &chars[offset], string_size - serialize_string_with_zero_byte);
     if (serialize_string_with_zero_byte)
@@ -351,7 +358,10 @@ void ColumnString::batchSerializeValueIntoMemory(VectorWithMemoryTracking<char *
         size_t string_size = sizeAt(i) + serialize_string_with_zero_byte;
         size_t offset = offsetAt(i);
 
-        memcpy(memories[i], &string_size, sizeof(string_size));
+        /// Write string_size in little-endian to match readBinaryLittleEndian in deserializeAndInsertFromArena.
+        auto string_size_le = string_size;
+        transformEndianness<std::endian::little>(string_size_le);
+        memcpy(memories[i], &string_size_le, sizeof(string_size_le));
         memories[i] += sizeof(string_size);
         memcpy(memories[i], &chars[offset], string_size - serialize_string_with_zero_byte);
         if (serialize_string_with_zero_byte)
