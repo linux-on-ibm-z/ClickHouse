@@ -922,7 +922,9 @@ void ColumnObject::serializeDynamicPathsAndSharedDataIntoArena(size_t n, Arena &
         num_paths += !column->isNullAt(n);
 
     char * pos = arena.allocContinue(sizeof(size_t), begin);
-    memcpy(pos, &num_paths, sizeof(size_t));
+    auto num_paths_le = num_paths;
+    transformEndianness<std::endian::little>(num_paths_le);
+    memcpy(pos, &num_paths_le, sizeof(size_t));
     res.data = pos - res.size;
     res.size += sizeof(size_t);
 
@@ -965,9 +967,13 @@ void ColumnObject::serializePathAndValueIntoArena(DB::Arena & arena, const char 
     size_t value_size = value.size;
     size_t path_size = path.size;
     char * pos = arena.allocContinue(sizeof(size_t) + path_size + sizeof(size_t) + value_size, begin);
-    memcpy(pos, &path_size, sizeof(size_t));
+    auto path_size_le = path_size;
+    transformEndianness<std::endian::little>(path_size_le);
+    memcpy(pos, &path_size_le, sizeof(size_t));
     memcpy(pos + sizeof(size_t), path.data, path_size);
-    memcpy(pos + sizeof(size_t) + path_size, &value_size, sizeof(size_t));
+    auto value_size_le = value_size;
+    transformEndianness<std::endian::little>(value_size_le);
+    memcpy(pos + sizeof(size_t) + path_size, &value_size_le, sizeof(size_t));
     memcpy(pos + sizeof(size_t) + path_size + sizeof(size_t), value.data, value_size);
     res.data = pos - res.size;
     res.size += sizeof(size_t) + path_size + sizeof(size_t) + value_size;
@@ -987,13 +993,13 @@ void ColumnObject::deserializeDynamicPathsAndSharedDataFromArena(ReadBuffer & in
 {
     size_t current_size = size();
     size_t num_paths;
-    readBinary<size_t>(num_paths, in);
+    readBinaryLittleEndian<size_t>(num_paths, in);
 
     const auto [shared_data_paths, shared_data_values] = getSharedDataPathsAndValues();
     for (size_t i = 0; i != num_paths; ++i)
     {
         size_t path_size;
-        readBinary<size_t>(path_size, in);
+        readBinaryLittleEndian<size_t>(path_size, in);
 
         if (in.available() < path_size)
             throw Exception(
@@ -1006,7 +1012,7 @@ void ColumnObject::deserializeDynamicPathsAndSharedDataFromArena(ReadBuffer & in
 
         /// Deserialize binary value and try to insert it to dynamic paths or shared data.
         size_t value_size;
-        readBinary<size_t>(value_size, in);
+        readBinaryLittleEndian<size_t>(value_size, in);
 
         /// Check if we have this path in dynamic paths.
         if (auto dynamic_it = dynamic_paths.find(path); dynamic_it != dynamic_paths.end())
@@ -1053,16 +1059,16 @@ void ColumnObject::skipSerializedInArena(ReadBuffer & in) const
 
     /// Second, skip all other paths and values.
     size_t num_paths;
-    readBinary<size_t>(num_paths, in);
+    readBinaryLittleEndian<size_t>(num_paths, in);
 
     for (size_t i = 0; i != num_paths; ++i)
     {
         size_t path_size;
-        readBinary<size_t>(path_size, in);
+        readBinaryLittleEndian<size_t>(path_size, in);
         in.ignore(path_size);
 
         size_t value_size;
-        readBinary<size_t>(value_size, in);
+        readBinaryLittleEndian<size_t>(value_size, in);
         in.ignore(value_size);
     }
 }

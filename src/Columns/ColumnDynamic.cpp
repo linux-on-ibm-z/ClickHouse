@@ -764,7 +764,9 @@ StringRef ColumnDynamic::serializeValueIntoArena(size_t n, Arena & arena, const 
 
     char * pos = arena.allocContinue(sizeof(UInt8) + sizeof(size_t) + type_and_value.size, begin);
     memcpy(pos, &null_bit, sizeof(UInt8));
-    memcpy(pos + sizeof(UInt8), &type_and_value.size, sizeof(size_t));
+    auto type_and_value_size_le = type_and_value.size;
+    transformEndianness<std::endian::little>(type_and_value_size_le);
+    memcpy(pos + sizeof(UInt8), &type_and_value_size_le, sizeof(size_t));
     memcpy(pos + sizeof(UInt8) + sizeof(size_t), type_and_value.data, type_and_value.size);
     res.data = pos;
     res.size = sizeof(UInt8) + sizeof(size_t) + type_and_value.size;
@@ -784,7 +786,7 @@ void ColumnDynamic::deserializeAndInsertFromArena(ReadBuffer & in, const IColumn
 
     /// Read variant type and value in binary format.
     size_t type_and_value_size;
-    readBinary<size_t>(type_and_value_size, in);
+    readBinaryLittleEndian<size_t>(type_and_value_size, in);
     if (in.available() < type_and_value_size)
         throw Exception(ErrorCodes::ATTEMPT_TO_READ_AFTER_EOF, "Attempt to read after eof when deserializing ColumnDynamic");
 
