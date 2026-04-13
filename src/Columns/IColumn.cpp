@@ -637,6 +637,31 @@ void IColumnHelper<Derived, Parent>::batchSerializeValueIntoMemoryWithNull(
     }
 }
 
+static inline void fakeReverseMemcpy(void * dst, const void * src, size_t size)
+{
+    uint8_t * uint_dst = reinterpret_cast<uint8_t *>(dst);
+    const uint8_t * uint_src = reinterpret_cast<const uint8_t *>(src);
+
+    uint_dst += size;
+    while (size)
+    {
+        --uint_dst;
+        *uint_dst = *uint_src;
+        ++uint_src;
+        --size;
+    }
+}
+
+template <std::endian endian>
+static inline void fakeStoreEndian(void * address, const void * src, size_t size)
+{
+    if constexpr (std::endian::native == endian)
+        memcpy(address, src, size);
+    else
+        fakeReverseMemcpy(address, src, size);
+}
+
+
 template <typename Derived, typename Parent>
 ALWAYS_INLINE char * IColumnHelper<Derived, Parent>::serializeValueIntoMemory(size_t n, char * memory, const IColumn::SerializationSettings * settings) const
 {
@@ -645,7 +670,11 @@ ALWAYS_INLINE char * IColumnHelper<Derived, Parent>::serializeValueIntoMemory(si
 
     const auto & self = static_cast<const Derived &>(*this);
     auto raw_data = self.getDataAt(n);
-    memcpy(memory, raw_data.data, raw_data.size);
+    if constexpr (endian_serialization<Derived>)
+        fakeStoreEndian<std::endian::big>(memory, raw_data.data, raw_data.size);
+    else
+        memcpy(memory, raw_data.data, raw_data.size);
+
     return memory + raw_data.size;
 }
 
