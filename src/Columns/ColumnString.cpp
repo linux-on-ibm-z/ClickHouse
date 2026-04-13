@@ -272,9 +272,7 @@ StringRef ColumnString::serializeValueIntoArena(size_t n, Arena & arena, char co
     StringRef res;
     res.size = sizeof(string_size) + string_size;
     char * pos = arena.allocContinue(res.size, begin);
-    auto string_size_le = string_size;
-    transformEndianness<std::endian::little>(string_size_le);
-    memcpy(pos, &string_size_le, sizeof(string_size));
+    memcpy(pos, &string_size, sizeof(string_size));
     memcpy(pos + sizeof(string_size), &chars[offset], string_size - serialize_string_with_zero_byte);
     if (serialize_string_with_zero_byte)
         *(pos + sizeof(string_size) + string_size - 1) = 0;
@@ -289,9 +287,7 @@ ALWAYS_INLINE char * ColumnString::serializeValueIntoMemory(size_t n, char * mem
     size_t string_size = sizeAt(n) + serialize_string_with_zero_byte;
     size_t offset = offsetAt(n);
 
-    auto string_size_le = string_size;
-    transformEndianness<std::endian::little>(string_size_le);
-    memcpy(memory, &string_size_le, sizeof(string_size));
+    memcpy(memory, &string_size, sizeof(string_size));
     memory += sizeof(string_size);
     memcpy(memory, &chars[offset], string_size - serialize_string_with_zero_byte);
     if (serialize_string_with_zero_byte)
@@ -308,9 +304,7 @@ void ColumnString::batchSerializeValueIntoMemory(std::vector<char *> & memories,
         size_t string_size = sizeAt(i) + serialize_string_with_zero_byte;
         size_t offset = offsetAt(i);
 
-        auto string_size_le = string_size;
-        transformEndianness<std::endian::little>(string_size_le);
-        memcpy(memories[i], &string_size_le, sizeof(string_size));
+        memcpy(memories[i], &string_size, sizeof(string_size));
         memories[i] += sizeof(string_size);
         memcpy(memories[i], &chars[offset], string_size - serialize_string_with_zero_byte);
         if (serialize_string_with_zero_byte)
@@ -322,7 +316,7 @@ void ColumnString::batchSerializeValueIntoMemory(std::vector<char *> & memories,
 void ColumnString::deserializeAndInsertFromArena(ReadBuffer & in, const IColumn::SerializationSettings * settings)
 {
     size_t string_size;
-    readBinaryLittleEndian<size_t>(string_size, in);
+    readBinary<size_t>(string_size, in);
 
     bool serialize_string_with_zero_byte = settings && settings->serialize_string_with_zero_byte;
     const size_t old_size = chars.size();
@@ -337,7 +331,7 @@ void ColumnString::deserializeAndInsertFromArena(ReadBuffer & in, const IColumn:
 void ColumnString::skipSerializedInArena(ReadBuffer & in) const
 {
     size_t string_size;
-    readBinaryLittleEndian<size_t>(string_size, in);
+    readBinary<size_t>(string_size, in);
     in.ignore(string_size);
 }
 

@@ -230,9 +230,7 @@ ColumnArray::serializeValueIntoArena(size_t n, Arena & arena, char const *& begi
     size_t offset = offsetAt(n);
 
     char * pos = arena.allocContinue(sizeof(array_size), begin);
-    auto array_size_le = array_size;
-    transformEndianness<std::endian::little>(array_size_le);
-    memcpy(pos, &array_size_le, sizeof(array_size));
+    memcpy(pos, &array_size, sizeof(array_size));
 
     StringRef res(pos, sizeof(array_size));
 
@@ -251,9 +249,7 @@ char * ColumnArray::serializeValueIntoMemory(size_t n, char * memory, const ICol
     size_t array_size = sizeAt(n);
     size_t offset = offsetAt(n);
 
-    auto array_size_le = array_size;
-    transformEndianness<std::endian::little>(array_size_le);
-    memcpy(memory, &array_size_le, sizeof(array_size));
+    memcpy(memory, &array_size, sizeof(array_size));
     memory += sizeof(array_size);
     for (size_t i = 0; i < array_size; ++i)
         memory = getData().serializeValueIntoMemory(offset + i, memory, settings);
@@ -283,7 +279,7 @@ std::optional<size_t> ColumnArray::getSerializedValueSize(size_t n, const IColum
 void ColumnArray::deserializeAndInsertFromArena(ReadBuffer & in, const IColumn::SerializationSettings * settings)
 {
     size_t array_size;
-    readBinaryLittleEndian<size_t>(array_size, in);
+    readBinary<size_t>(array_size, in);
 
     for (size_t i = 0; i < array_size; ++i)
         getData().deserializeAndInsertFromArena(in, settings);
@@ -294,7 +290,7 @@ void ColumnArray::deserializeAndInsertFromArena(ReadBuffer & in, const IColumn::
 void ColumnArray::skipSerializedInArena(ReadBuffer & in) const
 {
     size_t array_size;
-    readBinaryLittleEndian<size_t>(array_size, in);
+    readBinary<size_t>(array_size, in);
 
     for (size_t i = 0; i < array_size; ++i)
         getData().skipSerializedInArena(in);
