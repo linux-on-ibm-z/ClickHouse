@@ -325,6 +325,10 @@ protected:
 template <class TCol>
 concept is_col_vector = std::is_same_v<TCol, ColumnVector<typename TCol::ValueType>>;
 
+/// Specialization of enable_endian_serialization for ColumnVector
+template <typename T>
+struct enable_endian_serialization<ColumnVector<T>> : std::true_type {};
+
 /// Prevent implicit template instantiation of ColumnVector for common types
 
 extern template class ColumnVector<UInt8>;

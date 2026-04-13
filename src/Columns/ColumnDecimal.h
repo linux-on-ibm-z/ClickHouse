@@ -169,6 +169,10 @@ protected:
     UInt32 scale;
 };
 
+/// Specialization of enable_endian_serialization for ColumnDecimal
+template <is_decimal T>
+struct enable_endian_serialization<ColumnDecimal<T>> : std::true_type {};
+
 template <class TCol>
 concept is_col_over_big_decimal = std::is_same_v<TCol, ColumnDecimal<typename TCol::ValueType>>
     && is_decimal<typename TCol::ValueType> && is_over_big_int<typename TCol::NativeT>;
