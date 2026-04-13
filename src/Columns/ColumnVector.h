@@ -326,8 +326,9 @@ template <class TCol>
 concept is_col_vector = std::is_same_v<TCol, ColumnVector<typename TCol::ValueType>>;
 
 /// Specialization of enable_endian_serialization for ColumnVector
+/// Only multi-byte types require endian conversion
 template <typename T>
-struct enable_endian_serialization<ColumnVector<T>> : std::true_type {};
+struct enable_endian_serialization<ColumnVector<T>> : std::bool_constant<(sizeof(T) > 1)> {};
 
 /// Prevent implicit template instantiation of ColumnVector for common types
 

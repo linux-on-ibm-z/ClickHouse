@@ -170,8 +170,9 @@ protected:
 };
 
 /// Specialization of enable_endian_serialization for ColumnDecimal
+/// Only multi-byte types require endian conversion
 template <is_decimal T>
-struct enable_endian_serialization<ColumnDecimal<T>> : std::true_type {};
+struct enable_endian_serialization<ColumnDecimal<T>> : std::bool_constant<(sizeof(T) > 1)> {};
 
 template <class TCol>
 concept is_col_over_big_decimal = std::is_same_v<TCol, ColumnDecimal<typename TCol::ValueType>>
