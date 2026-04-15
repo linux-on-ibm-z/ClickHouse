@@ -1,7 +1,33 @@
 # docker build -t clickhouse/stateless-test .
 ARG FROM_TAG=latest
+ARG CCTOOLS_TAG=${CCTOOLS_TAG-"859fb360308eb8ac47ad"}
+ARG MINIO_SOURCE=download
+
+FROM clickhouse/cctools:${CCTOOLS_TAG} AS cctools
+
+FROM ubuntu:22.04 AS minio-download
+
+# Unrelated to vars in setup_minio.sh, but should be the same there
+# to have the same binaries for local running scenario
+ARG MINIO_SERVER_VERSION=2025-06-13T11-33-47Z
+ARG MINIO_CLIENT_VERSION=2025-05-21T01-59-54Z
+ARG TARGETARCH
+
+# Download Minio-related binaries
+RUN arch=${TARGETARCH:-amd64} \
+    && curl -L "https://dl.min.io/server/minio/release/linux-${arch}/archive/minio.RELEASE.${MINIO_SERVER_VERSION}" -o /minio \
+    && curl -L "https://dl.min.io/client/mc/release/linux-${arch}/archive/mc.RELEASE.${MINIO_CLIENT_VERSION}" -o /mc
+
+
+FROM scratch AS minio-local
+
+COPY minio mc /
+
+FROM minio-${MINIO_SOURCE} AS minio
+
 FROM clickhouse/test-base:$FROM_TAG
 
+ARG TARGETARCH
 ARG odbc_driver_url="https://github.com/ClickHouse/clickhouse-odbc/releases/download/v1.1.6.20200320/clickhouse-odbc-1.1.6-Linux.tar.gz"
 
 RUN mkdir /etc/clickhouse-server /etc/clickhouse-keeper /etc/clickhouse-client /usr/share/clickhouse/ && chmod 777 /etc/clickhouse-* /usr/share/clickhouse \
@@ -57,10 +83,19 @@ RUN apt-get update -y \
     && rm -rf /var/lib/apt/lists/* /var/cache/debconf /tmp/*
 
 # Install Node.js 20 from NodeSource (azurite 3.34 fails with 24)
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* /var/cache/debconf /tmp/*
+ARG TARGETARCH
+RUN if [ "${TARGETARCH}" = "amd64" ] || [ "${TARGETARCH}" = "arm64" ]; then \
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+        && apt-get install -y --no-install-recommends nodejs \
+        && apt-get clean \
+        && rm -rf /var/lib/apt/lists/* /var/cache/debconf /tmp/*; \
+    else \
+        NODE_JS_VERSION="20.20.2" \
+        && wget https://nodejs.org/dist/v${NODE_JS_VERSION}/node-v${NODE_JS_VERSION}-linux-${TARGETARCH}.tar.xz \
+        && chmod ugo+r node-v${NODE_JS_VERSION}-linux-${TARGETARCH}.tar.xz \
+        && tar --strip-components=1 -C /usr/local -xf node-v${NODE_JS_VERSION}-linux-${TARGETARCH}.tar.xz \
+        && rm node-v${NODE_JS_VERSION}-linux-${TARGETARCH}.tar.xz; \
+    fi
 
 ARG PROTOC_VERSION=25.1
 RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip \
@@ -82,17 +117,9 @@ RUN mkdir -p /tmp/clickhouse-odbc-tmp \
 
 ENV NUM_TRIES=1
 
-# Unrelated to vars in setup_minio.sh, but should be the same there
-# to have the same binaries for local running scenario
-ARG MINIO_SERVER_VERSION=2025-06-13T11-33-47Z
-ARG MINIO_CLIENT_VERSION=2025-05-21T01-59-54Z
-ARG TARGETARCH
-
 # Download Minio-related binaries
-RUN arch=${TARGETARCH:-amd64} \
-    && curl -L "https://dl.min.io/server/minio/release/linux-${arch}/archive/minio.RELEASE.${MINIO_SERVER_VERSION}" -o /minio \
-    && curl -L "https://dl.min.io/client/mc/release/linux-${arch}/archive/mc.RELEASE.${MINIO_CLIENT_VERSION}" -o /mc \
-    && chmod +x /mc /minio
+COPY --from=minio /mc /minio /
+RUN chmod +x /mc /minio
 
 ENV MINIO_ROOT_USER="clickhouse"
 ENV MINIO_ROOT_PASSWORD="clickhouse"
@@ -111,10 +138,12 @@ ENV PYTHONPATH=".:./ci"
 # A directory for cache
 RUN mkdir /dev/shm/clickhouse
 
-COPY --from=clickhouse/cctools:859fb360308eb8ac47ad /opt/gdb /opt/gdb
+COPY --from=cctools /opt/gdb /opt/gdb
+# Give suid to gdb to grant it attach permissions
+RUN chmod u+s /opt/gdb/bin/gdb
 ENV PATH="/opt/gdb/bin:${PATH}"
 
-COPY --from=clickhouse/cctools:859fb360308eb8ac47ad \
+COPY --from=cctools \
   /opt/openssl-fips/openssl.cnf \
   /opt/openssl-fips/fipsmodule.cnf \
   /opt/openssl-fips/fips.so \
