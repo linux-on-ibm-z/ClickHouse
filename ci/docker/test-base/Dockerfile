@@ -17,7 +17,7 @@ RUN apt-get update \
     && wget "https://packages.clickhouse.com/deb/pool/main/c/clickhouse/clickhouse-odbc-bridge_${BRIDGE_VERSION}_${ARCH}.deb" \
     && wget "https://packages.clickhouse.com/deb/pool/main/c/clickhouse/clickhouse-library-bridge_${BRIDGE_VERSION}_${ARCH}.deb"
 
-FROM scratch AS odbc-copy
+FROM scratch AS odbc-local
 
 COPY clickhouse-odbc-bridge_*.deb clickhouse-library-bridge_*.deb /
 

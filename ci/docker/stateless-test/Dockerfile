@@ -2,6 +2,37 @@
 ARG FROM_TAG=latest
 ARG REDPANDA_VERSION=v25.1.3
 FROM redpandadata/redpanda:${REDPANDA_VERSION} AS redpanda
+ARG CCTOOLS_TAG=${CCTOOLS_TAG-"859fb360308eb8ac47ad"}
+ARG MINIO_SOURCE=download
+
+FROM clickhouse/cctools:${CCTOOLS_TAG} AS cctools
+
+FROM ubuntu:22.04 AS minio-download
+
+# Unrelated to vars in setup_minio.sh, but should be the same there
+# to have the same binaries for local running scenario
+ARG MINIO_SERVER_VERSION=2025-06-13T11-33-47Z
+ARG MINIO_CLIENT_VERSION=2025-05-21T01-59-54Z
+ARG TARGETARCH
+
+# Download Minio-related binaries.
+# dl.min.io throttles under concurrent multi-arch image builds, so fetch with
+# --fail (never write an error body as a "binary") and retry with backoff on
+# transient errors/timeouts; otherwise one blip fails the build and the image
+# is never pushed, breaking every downstream stateless job with "image not found".
+RUN arch=${TARGETARCH:-amd64} \
+    && curl -fL --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 60 --max-time 600 \
+        "https://dl.min.io/server/minio/release/linux-${arch}/archive/minio.RELEASE.${MINIO_SERVER_VERSION}" -o /minio \
+    && curl -fL --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 60 --max-time 600 \
+        "https://dl.min.io/client/mc/release/linux-${arch}/archive/mc.RELEASE.${MINIO_CLIENT_VERSION}" -o /mc \
+    && chmod +x /mc /minio
+
+
+FROM scratch AS minio-local
+
+COPY minio mc /
+
+FROM minio-${MINIO_SOURCE} AS minio
 
 FROM clickhouse/test-base:$FROM_TAG
 
@@ -100,6 +131,10 @@ RUN arch=${TARGETARCH:-amd64} \
     && rm /tmp/seaweedfs.tar.gz \
     && chmod +x /weed
 
+# Download Minio-related binaries
+COPY --from=minio /mc /minio /
+RUN chmod +x /mc /minio
+
 # Pre-bundle the AIStor (licensed MinIO) binaries so AIStor jobs do not each
 # re-fetch them from dl.min.io at runtime: ~22 stateless AIStor jobs start at
 # once, and that per-job download was a thundering herd on the external endpoint
@@ -140,10 +175,6 @@ RUN arch=${TARGETARCH:-amd64} \
     && mv /usr/local/bin/azurite-rs-linux-${arch} /usr/local/bin/azurite-rs \
     && chmod +x /usr/local/bin/azurite-rs
 
-# Install Redpanda (Kafka-compatible broker, no JVM required)
-COPY --from=redpanda /opt/redpanda /opt/redpanda
-ENV PATH="/opt/redpanda/bin:${PATH}"
-
 ENV PYTHONPATH=".:./ci"
 
 #USER clickhouse
@@ -151,10 +182,12 @@ ENV PYTHONPATH=".:./ci"
 # A directory for cache
 RUN mkdir /dev/shm/clickhouse
 
-COPY --from=clickhouse/cctools:859fb360308eb8ac47ad /opt/gdb /opt/gdb
+COPY --from=cctools /opt/gdb /opt/gdb
+# Give suid to gdb to grant it attach permissions
+RUN chmod u+s /opt/gdb/bin/gdb
 ENV PATH="/opt/gdb/bin:${PATH}"
 
-COPY --from=clickhouse/cctools:859fb360308eb8ac47ad \
+COPY --from=cctools \
   /opt/openssl-fips/openssl.cnf \
   /opt/openssl-fips/fipsmodule.cnf \
   /opt/openssl-fips/fips.so \
