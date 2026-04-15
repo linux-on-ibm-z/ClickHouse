@@ -103,7 +103,18 @@ RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v${PR
     && rm protoc-${PROTOC_VERSION}-linux-x86_64.zip
 
 COPY requirements.txt /
-RUN pip3 install --no-cache-dir -r /requirements.txt
+RUN if [ "${TARGETARCH}" = "s390x" ]; then \
+    apt-get update \
+    && apt-get install libopenblas-dev pkg-config build-essential python3-dev gfortran \
+      python3-pkg-resources python3-setuptools --yes --no-install-recommends \
+    && pip3 install meson \
+    && pip3 install pybind11 \
+    && pip3 install Cython \
+    && pip3 install pythran \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /var/cache/debconf /tmp/*; \
+  fi \
+  && pip3 install --no-cache-dir -r /requirements.txt
 
 RUN mkdir -p /tmp/clickhouse-odbc-tmp \
   && cd /tmp/clickhouse-odbc-tmp \
