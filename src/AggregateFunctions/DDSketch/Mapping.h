@@ -80,11 +80,10 @@ public:
         writeBinary(offset, buf);
     }
 
-    template <std::endian FromEndian = std::endian::native> /// Allow specifying endianness for unit tests
     void deserialize(ReadBuffer & buf)
     {
-        readBinaryEndian<FromEndian>(gamma, buf);
-        readBinaryEndian<FromEndian>(offset, buf);
+        readBinary(gamma, buf);
+        readBinary(offset, buf);
         if (gamma <= 1.0)
         {
             throw Exception(ErrorCodes::BAD_ARGUMENTS, "Invalid gamma value after deserialization: {}", gamma);

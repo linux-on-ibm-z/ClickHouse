@@ -151,7 +151,6 @@ public:
         }
     }
 
-    template <std::endian FromEndian = std::endian::native> /// Allow specifying endianness for unit tests
     void deserialize(ReadBuffer & buf)
     {
         count = 0;
@@ -170,7 +169,7 @@ public:
             for (UInt64 i = 0; i < num_bins; ++i)
             {
                 Float64 bin_count;
-                readBinaryEndian<FromEndian>(bin_count, buf);
+                readFloatBinary(bin_count, buf);
                 add(start_key, bin_count);
                 start_key += index_delta;
             }
@@ -185,7 +184,7 @@ public:
                 int index_delta;
                 readVarInt(index_delta, buf);
                 Float64 bin_count;
-                readBinaryEndian<FromEndian>(bin_count, buf);
+                readFloatBinary(bin_count, buf);
                 previous_index += index_delta;
                 add(previous_index, bin_count);
             }

@@ -169,7 +169,6 @@ public:
         writeBinary(zero_count, buf);
     }
 
-    template <std::endian FromEndian = std::endian::native> /// Allow specifying endianness for unit tests
     void deserialize(ReadBuffer & buf)
     {
         // Read the mapping
@@ -179,7 +178,7 @@ public:
         {
             throw Exception(ErrorCodes::INCORRECT_DATA, "Invalid flag for mapping");
         }
-        mapping->deserialize<FromEndian>(buf);
+        mapping->deserialize(buf);
 
         // Read the positive and negative stores
         readBinary(flag, buf);
@@ -187,14 +186,14 @@ public:
         {
             throw Exception(ErrorCodes::INCORRECT_DATA, "Invalid flag for positive store");
         }
-        store->deserialize<FromEndian>(buf);
+        store->deserialize(buf);
 
         readBinary(flag, buf);
         if (flag != enc.FlagTypeNegativeStore)
         {
             throw Exception(ErrorCodes::INCORRECT_DATA, "Invalid flag for negative store");
         }
-        negative_store->deserialize<FromEndian>(buf);
+        negative_store->deserialize(buf);
 
         // Read the zero count
         readBinary(flag, buf);
@@ -202,7 +201,7 @@ public:
         {
             throw Exception(ErrorCodes::INCORRECT_DATA, "Invalid flag for zero count");
         }
-        readBinaryEndian<FromEndian>(zero_count, buf);
+        readBinary(zero_count, buf);
         count = negative_store->count + zero_count + store->count;
     }
 

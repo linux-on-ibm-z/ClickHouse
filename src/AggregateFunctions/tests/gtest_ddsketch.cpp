@@ -41,7 +41,7 @@ TEST(DDSketch, MergeDifferentGammasWithoutSegfault)
     */
     std::string lhs_data = base64Decode("AgAAAAAAAABAAAAAAAAAAAABDAEPAgAAAAAAAPA/AwwA/v///w8CBAAAAAAAAAAA");
     ReadBufferFromString lhs_buffer{lhs_data};
-    lhs.deserialize<std::endian::little>(lhs_buffer);
+    lhs.deserialize(lhs_buffer);
 
     ASSERT_DOUBLE_EQ(lhs.getCount(), 1);
     ASSERT_DOUBLE_EQ(lhs.getGamma(), 2.0);
@@ -70,7 +70,7 @@ TEST(DDSketch, MergeDifferentGammasWithoutSegfault)
     */
     std::string rhs_data = base64Decode("As07f2aeoPY/AAAAAAAAAAABDAEjAgAAAAAAAPA/AwwA/v///w8CBAAAAAAAAAAA");
     ReadBufferFromString rhs_buffer{rhs_data};
-    rhs.deserialize<std::endian::little>(rhs_buffer);
+    rhs.deserialize(rhs_buffer);
 
     ASSERT_DOUBLE_EQ(rhs.getCount(), 1);
     ASSERT_DOUBLE_EQ(rhs.getGamma(), 1.4142135623730951);
