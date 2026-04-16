@@ -104,18 +104,33 @@ RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v${PR
 
 COPY requirements.txt /
 RUN if [ "${TARGETARCH}" = "s390x" ]; then \
-    apt-get update \
+    apt-get update -y \
     && apt-get install libopenblas-dev pkg-config build-essential python3-dev gfortran \
-      ninja-build --yes --no-install-recommends \
-    && pip3 install --upgrade setuptools wheel \
-    && pip3 install meson \
-    && pip3 install pybind11 \
-    && pip3 install Cython \
-    && pip3 install pythran \
+      cmake ninja-build --yes --no-install-recommends \
+    && pip3 install "pip==25.3" "setuptools<81" "wheel==0.46.3" \
+    && echo "setuptools<81" > constraints.txt \
+    && pip3 install --build-constraint "constraints.txt" meson \
+    && pip3 install --build-constraint "constraints.txt" pybind11 \
+    && pip3 install --build-constraint "constraints.txt" Cython \
+    && pip3 install --build-constraint "constraints.txt" pythran \
+    && git clone https://github.com/apache/arrow.git \
+    && cd arrow/ \
+    && git checkout apache-arrow-18.0.0 \
+    && git submodule update --init \
+    && export PARQUET_TEST_DATA="${PWD}/cpp/submodules/parquet-testing/data" \
+    && export ARROW_TEST_DATA="${PWD}/testing/data" \
+    && cd ../ \
+    && pip3 install -r arrow/python/requirements-build.txt \
+    && export ARROW_HOME=/usr \
+    && export CMAKE_PREFIX_PATH=$ARROW_HOME:$CMAKE_PREFIX_PATH \
+    && cmake -S arrow/cpp -B arrow/cpp/build -DCMAKE_INSTALL_PREFIX=$ARROW_HOME --preset ninja-release-python \
+    && cmake --build arrow/cpp/build --target install \
+    && pip3 install --build-constraint "constraints.txt" -r requirements.txt \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/debconf /tmp/*; \
-  fi \
-  && pip3 install --no-cache-dir -r /requirements.txt
+  else \
+    pip3 install --no-cache-dir -r /requirements.txt; \
+  fi
 
 RUN mkdir -p /tmp/clickhouse-odbc-tmp \
   && cd /tmp/clickhouse-odbc-tmp \
