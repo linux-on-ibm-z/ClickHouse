@@ -106,7 +106,7 @@ COPY requirements.txt /
 RUN if [ "${TARGETARCH}" = "s390x" ]; then \
     apt-get update -y \
     && apt-get install libopenblas-dev pkg-config build-essential python3-dev gfortran \
-      cmake ninja-build --yes --no-install-recommends \
+      cmake ninja-build libssl-dev --yes --no-install-recommends \
     && pip3 install "pip==25.3" "setuptools<81" "wheel==0.46.3" \
     && echo "setuptools<81" > constraints.txt \
     && pip3 install --build-constraint "constraints.txt" meson \
