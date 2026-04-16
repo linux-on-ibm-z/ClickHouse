@@ -125,6 +125,7 @@ RUN if [ "${TARGETARCH}" = "s390x" ]; then \
     && export CMAKE_PREFIX_PATH=$ARROW_HOME:$CMAKE_PREFIX_PATH \
     && cmake -S arrow/cpp -B arrow/cpp/build -DCMAKE_INSTALL_PREFIX=$ARROW_HOME --preset ninja-release-python \
     && cmake --build arrow/cpp/build --target install \
+    && export GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=true \
     && pip3 install --build-constraint "constraints.txt" -r requirements.txt \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/debconf /tmp/*; \
