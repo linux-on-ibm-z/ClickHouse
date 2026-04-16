@@ -810,7 +810,7 @@ void ColumnVariant::deserializeAndInsertFromArena(ReadBuffer & in, const IColumn
 {
     /// During any serialization/deserialization we should always use global discriminators.
     Discriminator global_discr;
-    readBinary<Discriminator>(global_discr, in);
+    readBinaryLittleEndian<Discriminator>(global_discr, in);
 
     Discriminator local_discr = localDiscriminatorByGlobal(global_discr);
     getLocalDiscriminators().push_back(local_discr);
@@ -827,7 +827,7 @@ void ColumnVariant::deserializeAndInsertFromArena(ReadBuffer & in, const IColumn
 void ColumnVariant::skipSerializedInArena(ReadBuffer & in) const
 {
     Discriminator global_discr;
-    readBinary<Discriminator>(global_discr, in);
+    readBinaryLittleEndian<Discriminator>(global_discr, in);
 
     if (global_discr == NULL_DISCRIMINATOR)
         return;

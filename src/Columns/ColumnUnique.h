@@ -503,7 +503,7 @@ size_t ColumnUnique<ColumnType>::uniqueDeserializeAndInsertFromArena(ReadBuffer 
     if (is_nullable)
     {
         UInt8 val;
-        readBinary<UInt8>(val, in);
+        readBinaryLittleEndian<UInt8>(val, in);
 
         if (val)
             return getNullValueIndex();
@@ -523,7 +523,7 @@ size_t ColumnUnique<ColumnType>::uniqueDeserializeAndInsertFromArena(ReadBuffer 
     /// String
     bool serialize_string_with_zero_byte = settings && settings->serialize_string_with_zero_byte;
     size_t string_size;
-    readBinary<size_t>(string_size, in);
+    readBinaryLittleEndian<size_t>(string_size, in);
     if (in.available() < string_size)
         throw Exception(ErrorCodes::ATTEMPT_TO_READ_AFTER_EOF, "Not enough data to deserialize string value in ColumnUnique.");
 
@@ -538,7 +538,7 @@ size_t ColumnUnique<ColumnType>::uniqueDeserializeAndInsertAggregationStateValue
     if (is_nullable)
     {
         UInt8 val;
-        readBinary<UInt8>(val, in);
+        readBinaryLittleEndian<UInt8>(val, in);
 
         if (val)
             return getNullValueIndex();
@@ -560,7 +560,7 @@ size_t ColumnUnique<ColumnType>::uniqueDeserializeAndInsertAggregationStateValue
     /// String
     /// For compatibility, serialized string value contains zero byte at the end, we just ignore this byte.
     size_t string_size_with_zero_byte;
-    readBinary<size_t>(string_size_with_zero_byte, in);
+    readBinaryLittleEndian<size_t>(string_size_with_zero_byte, in);
     if (in.available() < string_size_with_zero_byte)
         throw Exception(ErrorCodes::ATTEMPT_TO_READ_AFTER_EOF, "Not enough data to deserialize string value in ColumnUnique.");
 

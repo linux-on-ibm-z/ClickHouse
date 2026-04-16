@@ -279,7 +279,7 @@ std::optional<size_t> ColumnArray::getSerializedValueSize(size_t n, const IColum
 void ColumnArray::deserializeAndInsertFromArena(ReadBuffer & in, const IColumn::SerializationSettings * settings)
 {
     size_t array_size;
-    readBinary<size_t>(array_size, in);
+    readBinaryLittleEndian<size_t>(array_size, in);
 
     for (size_t i = 0; i < array_size; ++i)
         getData().deserializeAndInsertFromArena(in, settings);
@@ -290,7 +290,7 @@ void ColumnArray::deserializeAndInsertFromArena(ReadBuffer & in, const IColumn::
 void ColumnArray::skipSerializedInArena(ReadBuffer & in) const
 {
     size_t array_size;
-    readBinary<size_t>(array_size, in);
+    readBinaryLittleEndian<size_t>(array_size, in);
 
     for (size_t i = 0; i < array_size; ++i)
         getData().skipSerializedInArena(in);
