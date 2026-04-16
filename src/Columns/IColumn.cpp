@@ -671,7 +671,7 @@ ALWAYS_INLINE char * IColumnHelper<Derived, Parent>::serializeValueIntoMemory(si
     const auto & self = static_cast<const Derived &>(*this);
     auto raw_data = self.getDataAt(n);
     if constexpr (endian_serialization<Derived>)
-        fakeStoreEndian<std::endian::big>(memory, raw_data.data, raw_data.size);
+        fakeStoreEndian<std::endian::little>(memory, raw_data.data, raw_data.size);
     else
         memcpy(memory, raw_data.data, raw_data.size);
 
