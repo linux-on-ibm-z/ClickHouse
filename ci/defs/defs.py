@@ -383,6 +383,7 @@ class BuildTypes(metaclass=MetaClasses.WithIter):
     AMD_MUSL = "amd_musl"
     RISCV64 = "riscv64"
     S390X = "s390x"
+    S390X_BINARY = "s390x_binary"
     LOONGARCH64 = "loongarch64"
     # WebAssembly (wasm64, through Emscripten). Experimental: the multicall `clickhouse`
     # binary builds, and `clickhouse local` runs under Node.js >= 24 and in browsers.

@@ -541,6 +541,11 @@ class JobConfigs:
             runs_on=RunnerLabels.ARM_LARGE,
         ),
         Job.ParamSet(
+            parameter=BuildTypes.S390X_BINARY,
+            provides=[ArtifactNames.CH_S390X],
+            runs_on=RunnerLabels.BUILDER_S390X,
+        ),
+        Job.ParamSet(
             parameter=BuildTypes.LOONGARCH64,
             provides=[ArtifactNames.CH_LOONGARCH64],
             runs_on=RunnerLabels.ARM_LARGE,
@@ -995,12 +1000,12 @@ class JobConfigs:
         Job.ParamSet(
             parameter="s390x_release, parallel",
             runs_on=RunnerLabels.S390X_MEDIUM,
-            requires=[ArtifactNames.CH_S390X_RELEASE],
+            requires=[ArtifactNames.CH_S390X],
         ),
         Job.ParamSet(
             parameter="s390x_release, sequential",
             runs_on=RunnerLabels.S390X_SMALL,
-            requires=[ArtifactNames.CH_S390X_RELEASE],
+            requires=[ArtifactNames.CH_S390X],
         ),
     )
     functional_tests_jobs_coverage = common_ft_job_config.parametrize(
