@@ -19,6 +19,7 @@ class RunnerLabels:
     CI_SERVICES_EBS = "ci_services_ebs"
     FUNC_TESTER_AMD = ["self-hosted", "amd-medium"]
     FUNC_TESTER_ARM = ["self-hosted", "arm-medium"]
+    FUNC_TESTER_S390X = ["self-hosted", "s390x-medium"]
     AMD_LARGE = ["self-hosted", "amd-large"]
     ARM_LARGE = ["self-hosted", "arm-large"]
     ARM_LARGE_STORAGE = ["self-hosted", "arm-large-storage"]
@@ -34,6 +35,8 @@ class RunnerLabels:
     ARM_SMALL_MEM = ["self-hosted", "arm-small-mem"]
     MACOS_ARM_SMALL = ["self-hosted", "macos_m2"]
     MACOS_AMD_SMALL = ["self-hosted", "amd_macos_m1"]
+    S390X_MEDIUM = ["self-hosted", "s390x-medium"]
+    S390X_SMALL = ["self-hosted", "s390x-small"]
     STYLE_CHECK_AMD = ["self-hosted", "style-checker"]
     STYLE_CHECK_ARM = ["self-hosted", "style-checker-aarch64"]
     STYLE_CHECK_S390X = ["self-hosted", "style-checker-s390x"]
