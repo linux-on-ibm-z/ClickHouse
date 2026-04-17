@@ -530,6 +530,16 @@ class JobConfigs:
             runs_on=RunnerLabels.ARM_SMALL,
             requires=[ArtifactNames.CH_ARM_BINARY],
         ),
+        Job.ParamSet(
+            parameter="s390x_release, parallel",
+            runs_on=RunnerLabels.S390X_MEDIUM,
+            requires=[ArtifactNames.CH_S390X_RELEASE],
+        ),
+        Job.ParamSet(
+            parameter="s390x_release, sequential",
+            runs_on=RunnerLabels.S390X_SMALL,
+            requires=[ArtifactNames.CH_S390X_RELEASE],
+        ),
     )
     functional_tests_jobs_coverage = common_ft_job_config.set_allow_merge_on_failure(
         True
