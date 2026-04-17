@@ -148,7 +148,7 @@ def main():
         elif to in OPTIONS_TO_INSTALL_ARGUMENTS:
             print(f"NOTE: Enabled config option [{OPTIONS_TO_INSTALL_ARGUMENTS[to]}]")
             config_installs_args += f" {OPTIONS_TO_INSTALL_ARGUMENTS[to]}"
-        elif to.startswith("amd_") or to.startswith("arm_") or "flaky" in to:
+        elif to.startswith("amd_") or to.startswith("arm_") or to.startswith("s390x_") or "flaky" in to:
             pass
         elif to in OPTIONS_TO_TEST_RUNNER_ARGUMENTS:
             print(
