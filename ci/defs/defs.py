@@ -314,6 +314,7 @@ class BuildTypes(metaclass=MetaClasses.WithIter):
     AMD_MUSL = "amd_musl"
     RISCV64 = "riscv64"
     S390X = "s390x"
+    S390X_BINARY = "s390x_binary"
     LOONGARCH64 = "loongarch64"
     FUZZERS = "fuzzers"
 
