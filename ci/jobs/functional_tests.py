@@ -420,7 +420,7 @@ def main():
             batch_num, total_batches = map(int, to.split("/"))
         elif to in OPTIONS_TO_INSTALL_ARGUMENTS:
             pass
-        elif to.startswith("amd_") or to.startswith("arm_"):
+        elif to.startswith("amd_") or to.startswith("arm_") or to.startswith("s390x_"):
             pass
         elif to in OPTIONS_TO_TEST_RUNNER_ARGUMENTS:
             pass

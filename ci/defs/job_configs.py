@@ -998,12 +998,12 @@ class JobConfigs:
             requires=[ArtifactNames.CH_ARM_BINARY],
         ),
         Job.ParamSet(
-            parameter="s390x_release, parallel",
+            parameter="s390x_binary, parallel",
             runs_on=RunnerLabels.S390X_MEDIUM,
             requires=[ArtifactNames.CH_S390X],
         ),
         Job.ParamSet(
-            parameter="s390x_release, sequential",
+            parameter="s390x_binary, sequential",
             runs_on=RunnerLabels.S390X_SMALL,
             requires=[ArtifactNames.CH_S390X],
         ),
