@@ -103,8 +103,7 @@ struct StatisticalSample
     {
         writeVarUInt(size_x, buf);
         writeVarUInt(size_y, buf);
-        buf.write(reinterpret_cast<const char *>(x.data()), size_x * sizeof(x[0]));
-        buf.write(reinterpret_cast<const char *>(y.data()), size_y * sizeof(y[0]));
+        writeSampleData(buf);
     }
 
     void read(ReadBuffer & buf, Arena * arena)
@@ -113,8 +112,40 @@ struct StatisticalSample
         readVarUInt(size_y, buf);
         x.resize(size_x, arena);
         y.resize(size_y, arena);
-        buf.readStrict(reinterpret_cast<char *>(x.data()), size_x * sizeof(x[0]));
-        buf.readStrict(reinterpret_cast<char *>(y.data()), size_y * sizeof(y[0]));
+        readSampleData(buf);
+    }
+
+private:
+    void writeSampleData(WriteBuffer & buf) const
+    {
+        if constexpr (std::endian::native == std::endian::little)
+        {
+            buf.write(reinterpret_cast<const char *>(x.data()), size_x * sizeof(x[0]));
+            buf.write(reinterpret_cast<const char *>(y.data()), size_y * sizeof(y[0]));
+        }
+        else
+        {
+            for (size_t i = 0; i < size_x; ++i)
+                writeBinaryLittleEndian(x[i], buf);
+            for (size_t i = 0; i < size_y; ++i)
+                writeBinaryLittleEndian(y[i], buf);
+        }
+    }
+
+    void readSampleData(ReadBuffer & buf)
+    {
+        if constexpr (std::endian::native == std::endian::little)
+        {
+            buf.readStrict(reinterpret_cast<char *>(x.data()), size_x * sizeof(x[0]));
+            buf.readStrict(reinterpret_cast<char *>(y.data()), size_y * sizeof(y[0]));
+        }
+        else
+        {
+            for (size_t i = 0; i < size_x; ++i)
+                readBinaryLittleEndian(x[i], buf);
+            for (size_t i = 0; i < size_y; ++i)
+                readBinaryLittleEndian(y[i], buf);
+        }
     }
 };
 
