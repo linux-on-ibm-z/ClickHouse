@@ -112,8 +112,7 @@ struct StatisticalSample
     {
         writeVarUInt(size_x, buf);
         writeVarUInt(size_y, buf);
-        buf.write(reinterpret_cast<const char *>(x.data()), size_x * sizeof(x[0]));
-        buf.write(reinterpret_cast<const char *>(y.data()), size_y * sizeof(y[0]));
+        writeSampleData(buf);
     }
 
     /// Grows `sample` by what the buffer already holds; `MixedAlignedArenaAllocator` reallocates and frees for real at these sizes.
@@ -137,7 +136,11 @@ struct StatisticalSample
             const size_t done = sample.size();
             const size_t batch = std::min(count - done, std::max<size_t>(1, buf.available() / sizeof(Element)));
             sample.resize(done + batch, arena);
-            buf.readStrict(reinterpret_cast<char *>(sample.data() + done), batch * sizeof(Element));
+            if constexpr (std::endian::native == std::endian::little)
+                buf.readStrict(reinterpret_cast<char *>(sample.data() + done), batch * sizeof(Element));
+            else
+                for (size_t i = done; i < batch; ++i)
+                    readBinaryLittleEndian(sample[i], buf);
         }
     }
 
@@ -151,6 +154,24 @@ struct StatisticalSample
         readSample(x, size_x, buf, arena);
         readSample(y, size_y, buf, arena);
     }
+
+private:
+    void writeSampleData(WriteBuffer & buf) const
+    {
+        if constexpr (std::endian::native == std::endian::little)
+        {
+            buf.write(reinterpret_cast<const char *>(x.data()), size_x * sizeof(x[0]));
+            buf.write(reinterpret_cast<const char *>(y.data()), size_y * sizeof(y[0]));
+        }
+        else
+        {
+            for (size_t i = 0; i < size_x; ++i)
+                writeBinaryLittleEndian(x[i], buf);
+            for (size_t i = 0; i < size_y; ++i)
+                writeBinaryLittleEndian(y[i], buf);
+        }
+    }
+
 };
 
 }
