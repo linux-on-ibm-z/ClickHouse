@@ -370,10 +370,20 @@ inline bool parseIPv6orIPv4(T & src, IsEOF eof, unsigned char * dst)
             return clear_dst();
 
         /// convert into IPv6
-        dst[15] = dst[0]; dst[0] = 0;
-        dst[14] = dst[1]; dst[1] = 0;
-        dst[13] = dst[2]; dst[2] = 0;
-        dst[12] = dst[3]; dst[3] = 0;
+        if constexpr (std::endian::native == std::endian::little)
+        {
+            dst[15] = dst[0]; dst[0] = 0;
+            dst[14] = dst[1]; dst[1] = 0;
+            dst[13] = dst[2]; dst[2] = 0;
+            dst[12] = dst[3]; dst[3] = 0;
+        }
+        else
+        {
+            dst[15] = dst[3]; dst[3] = 0;
+            dst[14] = dst[2]; dst[2] = 0;
+            dst[13] = dst[1]; dst[1] = 0;
+            dst[12] = dst[0]; dst[0] = 0;
+        }
 
         dst[11] = 0xff;
         dst[10] = 0xff;
