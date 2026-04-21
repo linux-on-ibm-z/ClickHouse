@@ -47,6 +47,7 @@ BUILD_TYPE_TO_DEB_PACKAGE_TYPE = {
     BuildTypes.AMD_DEBUG: "debug",
     BuildTypes.AMD_RELEASE: "release",
     BuildTypes.ARM_RELEASE: "release",
+    BuildTypes.S390X_DEBUG: "debug",
     BuildTypes.S390X_RELEASE: "release",
     BuildTypes.AMD_ASAN: "asan",
     BuildTypes.ARM_ASAN: "asan",
