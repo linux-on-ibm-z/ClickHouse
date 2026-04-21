@@ -128,34 +128,28 @@ template <typename IPv>
 void SerializationIP<IPv>::serializeBinary(const Field & field, WriteBuffer & ostr, const FormatSettings &) const
 {
     IPv x = field.safeGet<IPv>();
-    if constexpr (std::is_same_v<IPv, IPv6>)
-        writeBinary(x, ostr);
-    else
-        writeBinaryLittleEndian(x, ostr);
+    writeBinaryLittleEndian(x, ostr);
 }
 
 template <typename IPv>
 void SerializationIP<IPv>::deserializeBinary(DB::Field & field, DB::ReadBuffer & istr, const DB::FormatSettings &) const
 {
     IPv x;
-    if constexpr (std::is_same_v<IPv, IPv6>)
-        readBinary(x, istr);
-    else
-        readBinaryLittleEndian(x, istr);
+    readBinaryLittleEndian(x, istr);
     field = NearestFieldType<IPv>(x);
 }
 
 template <typename IPv>
 void SerializationIP<IPv>::serializeBinary(const DB::IColumn & column, size_t row_num, DB::WriteBuffer & ostr, const DB::FormatSettings &) const
 {
-    writeBinary(assert_cast<const ColumnVector<IPv> &>(column).getData()[row_num], ostr);
+    writeBinaryLittleEndian(assert_cast<const ColumnVector<IPv> &>(column).getData()[row_num], ostr);
 }
 
 template <typename IPv>
 void SerializationIP<IPv>::deserializeBinary(DB::IColumn & column, DB::ReadBuffer & istr, const DB::FormatSettings &) const
 {
     IPv x;
-    readBinary(x.toUnderType(), istr);
+    readBinaryLittleEndian(x.toUnderType(), istr);
     assert_cast<ColumnVector<IPv> &>(column).getData().push_back(x);
 }
 
@@ -169,7 +163,13 @@ void SerializationIP<IPv>::serializeBinaryBulk(const DB::IColumn & column, DB::W
     if (limit == 0 || offset + limit > size)
         limit = size - offset;
 
-    if (limit)
+    if (limit == 0)
+        return;
+
+    if constexpr (std::endian::native == std::endian::big)
+        for (size_t i = offset; i < offset + limit; ++i)
+            writeBinaryLittleEndian(x[i], ostr);
+    else
         ostr.write(reinterpret_cast<const char *>(&x[offset]), sizeof(IPv) * limit);
 }
 
@@ -182,6 +182,10 @@ void SerializationIP<IPv>::deserializeBinaryBulk(DB::IColumn & column, DB::ReadB
     istr.ignore(sizeof(IPv) * rows_offset);
     size_t size = istr.readBig(reinterpret_cast<char*>(&x[initial_size]), sizeof(IPv) * limit);
     x.resize(initial_size + size / sizeof(IPv));
+
+    if constexpr (std::endian::native == std::endian::big)
+        for (size_t i = initial_size; i < x.size(); ++i)
+            transformEndianness<std::endian::big, std::endian::little>(x[i]);
 }
 
 template class SerializationIP<IPv4>;
