@@ -175,7 +175,12 @@ namespace detail
                 parsed = parseIPv6Whole(src_value, src_value_end, res_value);
             }
 
-            if (!parsed)
+            if (parsed)
+            {
+                if constexpr (std::endian::native == std::endian::big && !std::is_same_v<ToColumn, ColumnFixedString>)
+                    std::reverse(res_value, res_value + IPV6_BINARY_LENGTH);
+            }
+            else
             {
                 if constexpr (exception_mode == IPStringToNumExceptionMode::Throw)
                     throw Exception(ErrorCodes::CANNOT_PARSE_IPV6, "Invalid IPv6 value");
