@@ -76,7 +76,7 @@ namespace CurrentMetrics
         explicit Increment(Metric metric, Value amount_ = 1)
             : Increment(&values[metric], amount_)
         {
-            assert(metric < CurrentMetrics::end());
+            assert(metric <= CurrentMetrics::end());
         }
 
         ~Increment()
