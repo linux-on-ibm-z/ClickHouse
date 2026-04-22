@@ -330,6 +330,9 @@ concept is_col_vector = std::is_same_v<TCol, ColumnVector<typename TCol::ValueTy
 template <typename T>
 struct enable_endian_serialization<ColumnVector<T>> : std::bool_constant<(sizeof(T) > 1)> {};
 
+template <>
+struct enable_endian_serialization<ColumnVector<IPv6>> : std::false_type {};
+
 /// Prevent implicit template instantiation of ColumnVector for common types
 
 extern template class ColumnVector<UInt8>;
