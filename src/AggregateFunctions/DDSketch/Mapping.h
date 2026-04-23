@@ -95,14 +95,14 @@ public:
 
     void serialize(WriteBuffer & buf) const
     {
-        writeBinary(gamma, buf);
-        writeBinary(offset, buf);
+        writeBinaryLittleEndian(gamma, buf);
+        writeBinaryLittleEndian(offset, buf);
     }
 
     void deserialize(ReadBuffer & buf)
     {
-        readBinary(gamma, buf);
-        readBinary(offset, buf);
+        readBinaryLittleEndian(gamma, buf);
+        readBinaryLittleEndian(offset, buf);
         if (!std::isfinite(gamma) || gamma <= 1.0)
         {
             throw Exception(ErrorCodes::INCORRECT_DATA, "Invalid gamma value after deserialization: {}", gamma);
