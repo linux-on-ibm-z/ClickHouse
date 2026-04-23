@@ -153,26 +153,26 @@ public:
     void serialize(WriteBuffer & buf) const
     {
         // Write the mapping
-        writeBinary(enc.FlagIndexMappingBaseLogarithmic.byte, buf);
+        writeBinaryLittleEndian(enc.FlagIndexMappingBaseLogarithmic.byte, buf);
         mapping->serialize(buf);
 
         // Write the positive and negative stores
-        writeBinary(enc.FlagTypePositiveStore, buf);
+        writeBinaryLittleEndian(enc.FlagTypePositiveStore, buf);
         store->serialize(buf);
 
-        writeBinary(enc.FlagTypeNegativeStore, buf);
+        writeBinaryLittleEndian(enc.FlagTypeNegativeStore, buf);
         negative_store->serialize(buf);
 
         // Write the zero count
-        writeBinary(enc.FlagZeroCountVarFloat.byte, buf);
-        writeBinary(zero_count, buf);
+        writeBinaryLittleEndian(enc.FlagZeroCountVarFloat.byte, buf);
+        writeBinaryLittleEndian(zero_count, buf);
     }
 
     void deserialize(ReadBuffer & buf)
     {
         // Read the mapping
         UInt8 flag = 0;
-        readBinary(flag, buf);
+        readBinaryLittleEndian(flag, buf);
         if (flag != enc.FlagIndexMappingBaseLogarithmic.byte)
         {
             throw Exception(ErrorCodes::INCORRECT_DATA, "Invalid flag for mapping");
@@ -183,14 +183,14 @@ public:
         const auto [min_valid_key, max_valid_key] = mapping->validKeyRange();
 
         // Read the positive and negative stores
-        readBinary(flag, buf);
+        readBinaryLittleEndian(flag, buf);
         if (flag != enc.FlagTypePositiveStore)
         {
             throw Exception(ErrorCodes::INCORRECT_DATA, "Invalid flag for positive store");
         }
         store->deserialize(buf, min_valid_key, max_valid_key);
 
-        readBinary(flag, buf);
+        readBinaryLittleEndian(flag, buf);
         if (flag != enc.FlagTypeNegativeStore)
         {
             throw Exception(ErrorCodes::INCORRECT_DATA, "Invalid flag for negative store");
@@ -198,12 +198,12 @@ public:
         negative_store->deserialize(buf, min_valid_key, max_valid_key);
 
         // Read the zero count
-        readBinary(flag, buf);
+        readBinaryLittleEndian(flag, buf);
         if (flag != enc.FlagZeroCountVarFloat.byte)
         {
             throw Exception(ErrorCodes::INCORRECT_DATA, "Invalid flag for zero count");
         }
-        readBinary(zero_count, buf);
+        readBinaryLittleEndian(zero_count, buf);
         if (!std::isfinite(zero_count) || zero_count < 0)
             throw Exception(ErrorCodes::INCORRECT_DATA, "Invalid zero_count in DDSketch: {}", zero_count);
 

@@ -7,6 +7,7 @@
 #include <IO/WriteBufferFromString.h>
 #include <IO/WriteBufferFromVector.h>
 #include <IO/WriteHelpers.h>
+#include <IO/ReadHelpers.h>
 #include <Common/Base64.h>
 #include <Common/VectorWithMemoryTracking.h>
 
@@ -102,31 +103,31 @@ std::string buildDDSketchPayload(Float64 gamma, Float64 offset, Float64 zero_cou
 
     /// Mapping flag
     UInt8 mapping_flag = 0x02; /// FlagIndexMappingBaseLogarithmic
-    writeBinary(mapping_flag, buf);
-    writeBinary(gamma, buf);
-    writeBinary(offset, buf);
+    writeBinaryLittleEndian(mapping_flag, buf);
+    writeBinaryLittleEndian(gamma, buf);
+    writeBinaryLittleEndian(offset, buf);
 
     /// Positive store: empty contiguous encoding
     UInt8 pos_store_flag = 0x01; /// FlagTypePositiveStore
-    writeBinary(pos_store_flag, buf);
+    writeBinaryLittleEndian(pos_store_flag, buf);
     UInt8 contiguous = 0x0C; /// BinEncodingContiguousCounts
-    writeBinary(contiguous, buf);
+    writeBinaryLittleEndian(contiguous, buf);
     writeVarUInt(UInt64(0), buf); /// num_bins = 0
     writeVarInt(Int64(0), buf);   /// start_key = 0
     writeVarInt(Int64(1), buf);   /// index_delta = 1
 
     /// Negative store: empty contiguous encoding
     UInt8 neg_store_flag = 0x03; /// FlagTypeNegativeStore
-    writeBinary(neg_store_flag, buf);
-    writeBinary(contiguous, buf);
+    writeBinaryLittleEndian(neg_store_flag, buf);
+    writeBinaryLittleEndian(contiguous, buf);
     writeVarUInt(UInt64(0), buf);
     writeVarInt(Int64(0), buf);
     writeVarInt(Int64(1), buf);
 
     /// Zero count
     UInt8 zero_flag = 0x04; /// FlagZeroCountVarFloat
-    writeBinary(zero_flag, buf);
-    writeBinary(zero_count, buf);
+    writeBinaryLittleEndian(zero_flag, buf);
+    writeBinaryLittleEndian(zero_count, buf);
 
     buf.finalize();
     return result;
@@ -143,33 +144,33 @@ std::string buildPayloadWithBinCount(Float64 bin_count)
 
     /// Mapping
     UInt8 mapping_flag = 0x02;
-    writeBinary(mapping_flag, buf);
-    writeBinary(gamma, buf);
-    writeBinary(offset, buf);
+    writeBinaryLittleEndian(mapping_flag, buf);
+    writeBinaryLittleEndian(gamma, buf);
+    writeBinaryLittleEndian(offset, buf);
 
     /// Positive store: 1 bin with the given count (sparse encoding)
     UInt8 pos_store_flag = 0x01;
-    writeBinary(pos_store_flag, buf);
+    writeBinaryLittleEndian(pos_store_flag, buf);
     UInt8 sparse = 0x04; /// BinEncodingIndexDeltasAndCounts
-    writeBinary(sparse, buf);
+    writeBinaryLittleEndian(sparse, buf);
     writeVarUInt(UInt64(1), buf);  /// num_non_empty_bins = 1
     writeVarInt(Int64(0), buf);    /// index_delta = 0
-    writeFloatBinary(bin_count, buf);
+    writeBinaryLittleEndian(bin_count, buf);
 
     /// Negative store: empty
     UInt8 neg_store_flag = 0x03;
-    writeBinary(neg_store_flag, buf);
+    writeBinaryLittleEndian(neg_store_flag, buf);
     UInt8 contiguous = 0x0C;
-    writeBinary(contiguous, buf);
+    writeBinaryLittleEndian(contiguous, buf);
     writeVarUInt(UInt64(0), buf);
     writeVarInt(Int64(0), buf);
     writeVarInt(Int64(1), buf);
 
     /// Zero count
     UInt8 zero_flag = 0x04;
-    writeBinary(zero_flag, buf);
+    writeBinaryLittleEndian(zero_flag, buf);
     Float64 zero_count = 0.0;
-    writeBinary(zero_count, buf);
+    writeBinaryLittleEndian(zero_count, buf);
 
     buf.finalize();
     return result;
@@ -186,15 +187,15 @@ std::string buildPayloadWithTooManyBins(UInt64 num_bins)
 
     /// Mapping
     UInt8 mapping_flag = 0x02;
-    writeBinary(mapping_flag, buf);
-    writeBinary(gamma, buf);
-    writeBinary(offset, buf);
+    writeBinaryLittleEndian(mapping_flag, buf);
+    writeBinaryLittleEndian(gamma, buf);
+    writeBinaryLittleEndian(offset, buf);
 
     /// Positive store: contiguous with too many bins
     UInt8 pos_store_flag = 0x01;
-    writeBinary(pos_store_flag, buf);
+    writeBinaryLittleEndian(pos_store_flag, buf);
     UInt8 contiguous = 0x0C;
-    writeBinary(contiguous, buf);
+    writeBinaryLittleEndian(contiguous, buf);
     writeVarUInt(num_bins, buf);
     writeVarInt(Int64(0), buf);
     writeVarInt(Int64(1), buf);
