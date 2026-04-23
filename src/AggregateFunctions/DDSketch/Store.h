@@ -123,19 +123,19 @@ public:
         if (dense_encoding_overhead <= sparse_encoding_overhead)
         {
             // Write the dense encoding
-            writeBinary(enc.BinEncodingContiguousCounts, buf); // Flag for dense encoding
+            writeBinaryLittleEndian(enc.BinEncodingContiguousCounts, buf); // Flag for dense encoding
             writeVarUInt(num_bins, buf);
             writeVarInt(min_key, buf);
             writeVarInt(1, buf); // indexDelta in dense encoding
             for (int index = min_key; index <= max_key; ++index)
             {
-                writeFloatBinary(bins[index - offset], buf);
+                writeBinaryLittleEndian(bins[index - offset], buf);
             }
         }
         else
         {
             // Write the sparse encoding
-            writeBinary(enc.BinEncodingIndexDeltasAndCounts, buf); // Flag for sparse encoding
+            writeBinaryLittleEndian(enc.BinEncodingIndexDeltasAndCounts, buf); // Flag for sparse encoding
             writeVarUInt(num_non_empty_bins, buf);
             int previous_index = 0;
             for (int index = min_key; index <= max_key; ++index)
@@ -144,7 +144,7 @@ public:
                 if (bin_count != 0)
                 {
                     writeVarInt(index - previous_index, buf);
-                    writeFloatBinary(bin_count, buf);
+                    writeBinaryLittleEndian(bin_count, buf);
                     previous_index = index;
                 }
             }
@@ -156,7 +156,7 @@ public:
         count = 0;
 
         UInt8 encoding_mode;
-        readBinary(encoding_mode, buf);
+        readBinaryLittleEndian(encoding_mode, buf);
         if (encoding_mode == enc.BinEncodingContiguousCounts)
         {
             UInt64 num_bins;
@@ -169,7 +169,7 @@ public:
             for (UInt64 i = 0; i < num_bins; ++i)
             {
                 Float64 bin_count;
-                readFloatBinary(bin_count, buf);
+                readBinaryLittleEndian(bin_count, buf);
                 add(start_key, bin_count);
                 start_key += index_delta;
             }
@@ -184,7 +184,7 @@ public:
                 int index_delta;
                 readVarInt(index_delta, buf);
                 Float64 bin_count;
-                readFloatBinary(bin_count, buf);
+                readBinaryLittleEndian(bin_count, buf);
                 previous_index += index_delta;
                 add(previous_index, bin_count);
             }
