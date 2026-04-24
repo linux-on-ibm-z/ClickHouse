@@ -169,21 +169,21 @@ void LinearModelData::returnWeights(IColumn & to) const
 
 void LinearModelData::read(ReadBuffer & buf)
 {
-    readBinary(bias, buf);
-    readBinary(weights, buf);
-    readBinary(iter_num, buf);
-    readBinary(gradient_batch, buf);
-    readBinary(batch_size, buf);
+    readBinaryLittleEndian(bias, buf);
+    readBinaryLittleEndian(weights, buf);
+    readBinaryLittleEndian(iter_num, buf);
+    readBinaryLittleEndian(gradient_batch, buf);
+    readBinaryLittleEndian(batch_size, buf);
     weights_updater->read(buf);
 }
 
 void LinearModelData::write(WriteBuffer & buf) const
 {
-    writeBinary(bias, buf);
-    writeBinary(weights, buf);
-    writeBinary(iter_num, buf);
-    writeBinary(gradient_batch, buf);
-    writeBinary(batch_size, buf);
+    writeBinaryLittleEndian(bias, buf);
+    writeBinaryLittleEndian(weights, buf);
+    writeBinaryLittleEndian(iter_num, buf);
+    writeBinaryLittleEndian(gradient_batch, buf);
+    writeBinaryLittleEndian(batch_size, buf);
     weights_updater->write(buf);
 }
 
@@ -228,14 +228,14 @@ void LinearModelData::add(const IColumn ** columns, size_t row_num)
 
 void Adam::write(WriteBuffer & buf) const
 {
-    writeBinary(average_gradient, buf);
-    writeBinary(average_squared_gradient, buf);
+    writeBinaryLittleEndian(average_gradient, buf);
+    writeBinaryLittleEndian(average_squared_gradient, buf);
 }
 
 void Adam::read(ReadBuffer & buf)
 {
-    readBinary(average_gradient, buf);
-    readBinary(average_squared_gradient, buf);
+    readBinaryLittleEndian(average_gradient, buf);
+    readBinaryLittleEndian(average_squared_gradient, buf);
 }
 
 void Adam::merge(const IWeightsUpdater & rhs, Float64 frac, Float64 rhs_frac)
@@ -302,12 +302,12 @@ void Adam::addToBatch(
 
 void Nesterov::read(ReadBuffer & buf)
 {
-    readBinary(accumulated_gradient, buf);
+    readBinaryLittleEndian(accumulated_gradient, buf);
 }
 
 void Nesterov::write(WriteBuffer & buf) const
 {
-    writeBinary(accumulated_gradient, buf);
+    writeBinaryLittleEndian(accumulated_gradient, buf);
 }
 
 void Nesterov::merge(const IWeightsUpdater & rhs, Float64 frac, Float64 rhs_frac)
@@ -363,12 +363,12 @@ void Nesterov::addToBatch(
 
 void Momentum::read(ReadBuffer & buf)
 {
-    readBinary(accumulated_gradient, buf);
+    readBinaryLittleEndian(accumulated_gradient, buf);
 }
 
 void Momentum::write(WriteBuffer & buf) const
 {
-    writeBinary(accumulated_gradient, buf);
+    writeBinaryLittleEndian(accumulated_gradient, buf);
 }
 
 void Momentum::merge(const IWeightsUpdater & rhs, Float64 frac, Float64 rhs_frac)
