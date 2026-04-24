@@ -1598,6 +1598,18 @@ inline void readBinaryBigEndian(T & x, ReadBuffer & buf)
     readBinaryEndian<std::endian::big>(x, buf);
 }
 
+template <typename T>
+inline void readBinaryLittleEndian(std::vector<T> & x, ReadBuffer & buf)
+{
+    readBinary<std::endian::little>(x, buf);
+}
+
+template <typename T>
+inline void readBinaryBigEndian(std::vector<T> & x, ReadBuffer & buf)
+{
+    readBinary<std::endian::big>(x, buf);
+}
+
 
 /// Generic methods to read value in text tab-separated format.
 
@@ -1842,7 +1854,7 @@ inline bool tryReadCSV(UInt256 & x, ReadBuffer & buf) { return readCSVSimple<UIn
 inline void readCSV(Int256 & x, ReadBuffer & buf) { readCSVSimple(x, buf); }
 inline bool tryReadCSV(Int256 & x, ReadBuffer & buf) { return readCSVSimple<Int256, bool>(x, buf); }
 
-template <typename T>
+template <std::endian endian, typename T>
 void readBinary(std::vector<T> & x, ReadBuffer & buf)
 {
     size_t size = 0;
@@ -1853,7 +1865,16 @@ void readBinary(std::vector<T> & x, ReadBuffer & buf)
 
     x.resize(size);
     for (size_t i = 0; i < size; ++i)
-        readBinary(x[i], buf);
+        if constexpr (endian == std::endian::native)
+            readBinary(x[i], buf);
+        else
+            readBinaryEndian<endian>(x[i], buf);
+}
+
+template <typename T>
+void readBinary(std::vector<T> & x, ReadBuffer & buf)
+{
+    readBinary<std::endian::native>(x, buf);
 }
 
 template <typename T>
