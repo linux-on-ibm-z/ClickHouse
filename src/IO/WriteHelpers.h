@@ -112,16 +112,7 @@ inline void writeStringBinary(const char * s, WriteBuffer & buf)
 template <StdVector V>
 void writeVectorBinary(const V & v, WriteBuffer & buf)
 {
-    using T = typename V::value_type;
-
-    writeVarUInt(v.size(), buf);
-
-    /// std::vector<bool> is bit-packed and has no contiguous element storage, so it cannot use the bulk path.
-    if constexpr (is_trivially_serializable<T> && !std::is_same_v<T, bool>)
-        buf.write(reinterpret_cast<const char *>(v.data()), v.size() * sizeof(T));
-    else
-        for (auto it = v.begin(); it != v.end(); ++it)
-            writeBinary(*it, buf);
+    writeVectorBinaryEndian<std::endian::native>(v, buf);
 }
 
 
@@ -1497,12 +1488,9 @@ inline void writeCSV(const IPv4 & x, WriteBuffer & buf) { writeDoubleQuoted(x, b
 inline void writeCSV(const IPv6 & x, WriteBuffer & buf) { writeDoubleQuoted(x, buf); }
 
 template <StdVector V>
-void writeBinary(const V & x, WriteBuffer & buf)
+void writeBinary(const V & v, WriteBuffer & buf)
 {
-    size_t size = x.size();
-    writeVarUInt(size, buf);
-    for (size_t i = 0; i < size; ++i)
-        writeBinary(x[i], buf);
+    writeVectorBinaryEndian<std::endian::native>(v, buf);
 }
 
 template <StdVector V>
@@ -1600,6 +1588,30 @@ inline void writeBinaryEndian(T x, WriteBuffer & buf)
     writeBinary(x, buf);
 }
 
+template <std::endian endian, StdVector V>
+void writeVectorBinaryEndian(const V & v, WriteBuffer & buf)
+{
+    using T = typename V::value_type;
+
+    writeVarUInt(v.size(), buf);
+
+    /// std::vector<bool> is bit-packed and has no contiguous element storage, so it cannot use the bulk path.
+    if constexpr (is_trivially_serializable<T> && !std::is_same_v<T, bool> && endian == std::endian::native)
+        buf.write(reinterpret_cast<const char *>(v.data()), v.size() * sizeof(T));
+    else
+        for (auto it = v.begin(); it != v.end(); ++it)
+        {
+            // This guard stops the compiler from attempting to match parameter types
+            // that are not handled by transformEndianness when we know transformEndianness
+            // will be a noop anyway. This allows this function to be used anywhere that
+            // writeBinary(x, buf) can be used if no tranformation would be applied.
+            if constexpr (endian == std::endian::native)
+                writeBinary(*it, buf);
+            else
+                writeBinaryEndian<endian>(*it, buf);
+        }
+}
+
 template <typename T>
 inline void writeBinaryLittleEndian(T x, WriteBuffer & buf)
 {
@@ -1610,6 +1622,18 @@ template <typename T>
 inline void writeBinaryBigEndian(T x, WriteBuffer & buf)
 {
     writeBinaryEndian<std::endian::big>(x, buf);
+}
+
+template <StdVector V>
+inline void writeVectorBinaryLittleEndian(const V & v, WriteBuffer & buf)
+{
+    writeVectorBinaryEndian<std::endian::little>(v, buf);
+}
+
+template <StdVector V>
+inline void writeVectorBinaryBigEndian(const V & v, WriteBuffer & buf)
+{
+    writeVectorBinaryEndian<std::endian::big>(v, buf);
 }
 
 void writePointerHex(const void * ptr, WriteBuffer & buf);
