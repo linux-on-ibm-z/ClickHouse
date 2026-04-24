@@ -204,26 +204,7 @@ inline void readIPv6Binary(IPv6 & ip, ReadBuffer & buf)
 template <StdVector V>
 void readVectorBinary(V & v, ReadBuffer & buf, size_t max_size = DEFAULT_MAX_STRING_SIZE, size_t max_element_size = DEFAULT_MAX_STRING_SIZE)
 {
-    using T = typename V::value_type;
-
-    size_t size = 0;
-    readVarUInt(size, buf);
-
-    if (size > max_size)
-        throw Exception(ErrorCodes::TOO_LARGE_ARRAY_SIZE,
-                        "Too large array size (maximum: {})", max_size);
-
-    v.resize(size);
-
-    /// std::vector<bool> is bit-packed and has no contiguous element storage, so it cannot use the bulk path.
-    if constexpr (is_trivially_serializable<T> && !std::is_same_v<T, bool>)
-        readNBytes(reinterpret_cast<char *>(v.data()), size * sizeof(T), buf);
-    else if constexpr (std::is_same_v<T, String>)
-        for (size_t i = 0; i < size; ++i)
-            readStringBinary(v[i], buf, max_element_size);
-    else
-        for (size_t i = 0; i < size; ++i)
-            readBinary(v[i], buf);
+    readVectorBinaryEndian<std::endian::native>(v, buf, max_size, max_element_size);
 }
 
 
@@ -1693,6 +1674,18 @@ inline void readBinaryBigEndian(T & x, ReadBuffer & buf)
     readBinaryEndian<std::endian::big>(x, buf);
 }
 
+template <StdVector V>
+inline void readVectorBinaryLittleEndian(V & v, ReadBuffer & buf, size_t max_size = DEFAULT_MAX_STRING_SIZE, size_t max_element_size = DEFAULT_MAX_STRING_SIZE)
+{
+    readVectorBinaryEndian<std::endian::little>(v, buf, max_size, max_element_size);
+}
+
+template <StdVector V>
+inline void readVectorBinaryBigEndian(V & v, ReadBuffer & buf, size_t max_size = DEFAULT_MAX_STRING_SIZE, size_t max_element_size = DEFAULT_MAX_STRING_SIZE)
+{
+    readVectorBinaryEndian<std::endian::big>(v, buf, max_size, max_element_size);
+}
+
 
 /// Generic methods to read value in text tab-separated format.
 
@@ -1937,19 +1930,44 @@ inline bool tryReadCSV(UInt256 & x, ReadBuffer & buf) { return readCSVSimple<UIn
 inline void readCSV(Int256 & x, ReadBuffer & buf) { readCSVSimple(x, buf); }
 inline bool tryReadCSV(Int256 & x, ReadBuffer & buf) { return readCSVSimple<Int256, bool>(x, buf); }
 
-template <StdVector V>
-void readBinary(V & x, ReadBuffer & buf)
+template <std::endian endian, StdVector V>
+void readVectorBinaryEndian(V & v, ReadBuffer & buf, size_t max_size = DEFAULT_MAX_STRING_SIZE, size_t max_element_size = DEFAULT_MAX_STRING_SIZE)
 {
+    using T = typename V::value_type;
+
     size_t size = 0;
     readVarUInt(size, buf);
 
-    if (size > DEFAULT_MAX_STRING_SIZE)
+    if (size > max_size)
         throw Exception(ErrorCodes::TOO_LARGE_ARRAY_SIZE,
-                        "Too large array size {} (maximum: {})", size, DEFAULT_MAX_STRING_SIZE);
+                        "Too large array size (maximum: {})", max_size);
 
-    x.resize(size);
-    for (size_t i = 0; i < size; ++i)
-        readBinary(x[i], buf);
+    v.resize(size);
+
+    /// std::vector<bool> is bit-packed and has no contiguous element storage, so it cannot use the bulk path.
+    if constexpr (is_trivially_serializable<T> && !std::is_same_v<T, bool> && endian == std::endian::native)
+        readNBytes(reinterpret_cast<char *>(v.data()), size * sizeof(T), buf);
+    else if constexpr (std::is_same_v<T, String>)
+        for (size_t i = 0; i < size; ++i)
+            readStringBinary(v[i], buf, max_element_size);
+    else
+        for (size_t i = 0; i < size; ++i)
+        {
+            // This guard stops the compiler from attempting to match parameter types
+            // that are not handled by transformEndianness when we know transformEndianness
+            // will be a noop anyway. This allows this function to be used anywhere that
+            // readBinary(x, buf) can be used if no transformation would be applied.
+            if constexpr (endian == std::endian::native)
+                readBinary(v[i], buf);
+            else
+                readBinaryEndian<endian>(v[i], buf);
+        }
+}
+
+template <StdVector V>
+void readBinary(V & v, ReadBuffer & buf)
+{
+    readVectorBinaryEndian<std::endian::native>(v, buf);
 }
 
 template <StdVector V>
