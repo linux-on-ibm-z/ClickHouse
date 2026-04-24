@@ -115,10 +115,7 @@ inline void writeStringBinary(std::string_view s, WriteBuffer & buf)
 template <typename T>
 void writeVectorBinary(const std::vector<T> & v, WriteBuffer & buf)
 {
-    writeVarUInt(v.size(), buf);
-
-    for (typename std::vector<T>::const_iterator it = v.begin(); it != v.end(); ++it)
-        writeBinary(*it, buf);
+    writeVectorBinaryEndian<std::endian::native>(v, buf);
 }
 
 
@@ -1517,6 +1514,18 @@ inline void writeBinaryEndian(T x, WriteBuffer & buf)
     writeBinary(x, buf);
 }
 
+template <std::endian endian, typename T>
+void writeVectorBinaryEndian(const std::vector<T> & v, WriteBuffer & buf)
+{
+    writeVarUInt(v.size(), buf);
+
+    for (const auto & elem : v)
+        if constexpr (endian == std::endian::native)
+            writeBinary(elem, buf);
+        else
+            writeBinaryEndian<endian>(elem, buf);
+}
+
 template <typename T>
 inline void writeBinaryLittleEndian(T x, WriteBuffer & buf)
 {
@@ -1527,6 +1536,18 @@ template <typename T>
 inline void writeBinaryBigEndian(T x, WriteBuffer & buf)
 {
     writeBinaryEndian<std::endian::big>(x, buf);
+}
+
+template <typename T>
+inline void writeBinaryLittleEndian(const std::vector<T> & v, WriteBuffer & buf)
+{
+    writeVectorBinaryEndian<std::endian::little>(v, buf);
+}
+
+template <typename T>
+inline void writeBinaryBigEndian(const std::vector<T> & v, WriteBuffer & buf)
+{
+    writeVectorBinaryEndian<std::endian::big>(v, buf);
 }
 
 void writePointerHex(const void * ptr, WriteBuffer & buf);
