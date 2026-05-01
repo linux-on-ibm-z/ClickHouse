@@ -114,7 +114,7 @@ public:
     void read(DB::ReadBuffer & in)
     {
         UInt8 kind = 0;
-        readBinary(kind, in);
+        readBinaryLittleEndian(kind, in);
 
         if (BitmapKind::Small == kind)
         {
@@ -146,7 +146,7 @@ public:
     void write(DB::WriteBuffer & out) const
     {
         UInt8 kind = isLarge() ? BitmapKind::Bitmap : BitmapKind::Small;
-        writeBinary(kind, out);
+        writeBinaryLittleEndian(kind, out);
 
         if (BitmapKind::Small == kind)
         {
