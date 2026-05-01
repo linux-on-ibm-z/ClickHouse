@@ -176,7 +176,7 @@ void SingleValueDataFixed<T>::insertResultInto(IColumn & to, const DataTypePtr &
 template <typename T>
 void SingleValueDataFixed<T>::write(WriteBuffer & buf, const ISerialization &) const
 {
-    writeBinary(has(), buf);
+    writeBinaryLittleEndian(has(), buf);
     if (has())
         writeBinaryLittleEndian(value, buf);
 }
@@ -184,7 +184,7 @@ void SingleValueDataFixed<T>::write(WriteBuffer & buf, const ISerialization &) c
 template <typename T>
 void SingleValueDataFixed<T>::read(ReadBuffer & buf, const ISerialization &, const DataTypePtr &, Arena *)
 {
-    readBinary(has_value, buf);
+    readBinaryLittleEndian(has_value, buf);
     if (has())
         readBinaryLittleEndian(value, buf);
 }
@@ -1467,17 +1467,17 @@ void SingleValueDataGeneric::write(WriteBuffer & buf, const ISerialization & ser
 {
     if (!value.isNull())
     {
-        writeBinary(true, buf);
+        writeBinaryLittleEndian(true, buf);
         serialization.serializeBinary(value, buf, {});
     }
     else
-        writeBinary(false, buf);
+        writeBinaryLittleEndian(false, buf);
 }
 
 void SingleValueDataGeneric::read(ReadBuffer & buf, const ISerialization & serialization, const DataTypePtr &, Arena *)
 {
     bool is_not_null = false;
-    readBinary(is_not_null, buf);
+    readBinaryLittleEndian(is_not_null, buf);
 
     if (is_not_null)
         serialization.deserializeBinary(value, buf, {});
@@ -1578,17 +1578,17 @@ void SingleValueDataGenericWithColumn::write(WriteBuffer & buf, const ISerializa
 {
     if (value)
     {
-        writeBinary(true, buf);
+        writeBinaryLittleEndian(true, buf);
         serialization.serializeBinary(*value, 0, buf, {});
     }
     else
-        writeBinary(false, buf);
+        writeBinaryLittleEndian(false, buf);
 }
 
 void SingleValueDataGenericWithColumn::read(ReadBuffer & buf, const ISerialization & serialization, const DataTypePtr & type, Arena *)
 {
     bool is_not_null = false;
-    readBinary(is_not_null, buf);
+    readBinaryLittleEndian(is_not_null, buf);
 
     if (is_not_null)
     {
