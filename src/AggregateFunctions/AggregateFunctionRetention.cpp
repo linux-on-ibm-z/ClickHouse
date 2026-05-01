@@ -48,13 +48,13 @@ struct AggregateFunctionRetentionData
     void serialize(WriteBuffer & buf) const
     {
         UInt32 event_value = static_cast<UInt32>(events.to_ulong());
-        writeBinary(event_value, buf);
+        writeBinaryLittleEndian(event_value, buf);
     }
 
     void deserialize(ReadBuffer & buf)
     {
         UInt32 event_value;
-        readBinary(event_value, buf);
+        readBinaryLittleEndian(event_value, buf);
         events = event_value;
     }
 };
