@@ -241,7 +241,7 @@ public:
         if constexpr (std::is_unsigned_v<Denominator>)
             writeVarUInt(this->data(place).denominator, buf);
         else /// Floating point denominator type can be used
-            writeBinary(this->data(place).denominator, buf);
+            writeBinaryLittleEndian(this->data(place).denominator, buf);
     }
 
     void deserialize(AggregateDataPtr __restrict place, ReadBuffer & buf, std::optional<size_t> /* version */, Arena *) const override
@@ -251,7 +251,7 @@ public:
         if constexpr (std::is_unsigned_v<Denominator>)
             readVarUInt(this->data(place).denominator, buf);
         else /// Floating point denominator type can be used
-            readBinary(this->data(place).denominator, buf);
+            readBinaryLittleEndian(this->data(place).denominator, buf);
     }
 
     void insertResultInto(AggregateDataPtr __restrict place, IColumn & to, Arena *) const override
