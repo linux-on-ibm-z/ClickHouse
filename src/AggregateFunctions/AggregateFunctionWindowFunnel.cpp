@@ -111,22 +111,22 @@ struct AggregateFunctionWindowFunnelData
 
     void serialize(WriteBuffer & buf) const
     {
-        writeBinary(sorted, buf);
-        writeBinary(events_list.size(), buf);
+        writeBinaryLittleEndian(sorted, buf);
+        writeBinaryLittleEndian(events_list.size(), buf);
 
         for (const auto & events : events_list)
         {
-            writeBinary(events.first, buf);
-            writeBinary(events.second, buf);
+            writeBinaryLittleEndian(events.first, buf);
+            writeBinaryLittleEndian(events.second, buf);
         }
     }
 
     void deserialize(ReadBuffer & buf)
     {
-        readBinary(sorted, buf);
+        readBinaryLittleEndian(sorted, buf);
 
         size_t size = 0;
-        readBinary(size, buf);
+        readBinaryLittleEndian(size, buf);
 
         if (size > 100'000'000) /// The constant is arbitrary
             throw Exception(ErrorCodes::TOO_LARGE_ARRAY_SIZE, "Too large size of the state of windowFunnel");
@@ -140,8 +140,8 @@ struct AggregateFunctionWindowFunnelData
 
         for (size_t i = 0; i < size; ++i)
         {
-            readBinary(timestamp, buf);
-            readBinary(event, buf);
+            readBinaryLittleEndian(timestamp, buf);
+            readBinaryLittleEndian(event, buf);
             events_list.emplace_back(timestamp, event);
         }
     }
@@ -233,23 +233,23 @@ struct AggregateFunctionWindowFunnelStrictOnceData
 
     void serialize(WriteBuffer & buf) const
     {
-        writeBinary(sorted, buf);
-        writeBinary(events_list.size(), buf);
+        writeBinaryLittleEndian(sorted, buf);
+        writeBinaryLittleEndian(events_list.size(), buf);
 
         for (const auto & event : events_list)
         {
-            writeBinary(event.timestamp, buf);
-            writeBinary(event.event_type, buf);
-            writeBinary(event.unique_id, buf);
+            writeBinaryLittleEndian(event.timestamp, buf);
+            writeBinaryLittleEndian(event.event_type, buf);
+            writeBinaryLittleEndian(event.unique_id, buf);
         }
     }
 
     void deserialize(ReadBuffer & buf)
     {
-        readBinary(sorted, buf);
+        readBinaryLittleEndian(sorted, buf);
 
         size_t events_size = 0;
-        readBinary(events_size, buf);
+        readBinaryLittleEndian(events_size, buf);
 
         if (events_size > 100'000'000) /// Arbitrary limit to prevent excessive memory allocation
             throw Exception(ErrorCodes::TOO_LARGE_ARRAY_SIZE, "Too large size of the state of windowFunnel");
@@ -264,9 +264,9 @@ struct AggregateFunctionWindowFunnelStrictOnceData
 
         for (size_t i = 0; i < events_size; ++i)
         {
-            readBinary(timestamp, buf);
-            readBinary(event_type, buf);
-            readBinary(unique_id, buf);
+            readBinaryLittleEndian(timestamp, buf);
+            readBinaryLittleEndian(event_type, buf);
+            readBinaryLittleEndian(unique_id, buf);
             next_unique_id = std::max(next_unique_id, unique_id + 1);
             events_list.emplace_back(timestamp, event_type, unique_id);
         }
