@@ -104,7 +104,7 @@ struct SingleValueDataFixed
     template <typename Out>
     void write(Out & out, const ISerialization &) const
     {
-        writeBinary(has(), out);
+        writeBinaryLittleEndian(has(), out);
         if (has())
             writeBinaryLittleEndian(value, out);
     }
