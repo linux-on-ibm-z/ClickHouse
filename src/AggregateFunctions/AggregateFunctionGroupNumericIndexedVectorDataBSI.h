@@ -1883,12 +1883,12 @@ public:
 
     void read(DB::ReadBuffer & in)
     {
-        readBinary(integer_bit_num, in);
-        readBinary(fraction_bit_num, in);
+        readBinaryLittleEndian(integer_bit_num, in);
+        readBinaryLittleEndian(fraction_bit_num, in);
 
         zero_indexes = std::make_shared<Roaring>();
         UInt8 is_zero_indexes_empty = 0;
-        readBinary(is_zero_indexes_empty, in);
+        readBinaryLittleEndian(is_zero_indexes_empty, in);
         if (is_zero_indexes_empty == 0)
         {
             zero_indexes->read(in);
@@ -1904,7 +1904,7 @@ public:
         for (size_t i = 0; i < total_bit_num; ++i)
         {
             UInt8 is_empty = 0;
-            readBinary(is_empty, in);
+            readBinaryLittleEndian(is_empty, in);
             if (is_empty == 1)
                 continue;
             else if (is_empty != 0)
@@ -1915,13 +1915,13 @@ public:
 
     void write(DB::WriteBuffer & out) const
     {
-        writeBinary(integer_bit_num, out);
-        writeBinary(fraction_bit_num, out);
+        writeBinaryLittleEndian(integer_bit_num, out);
+        writeBinaryLittleEndian(fraction_bit_num, out);
 
         UInt8 is_zero_indexes_empty = 0;
         if (zero_indexes->size() == 0)
             is_zero_indexes_empty = 1;
-        writeBinary(is_zero_indexes_empty, out);
+        writeBinaryLittleEndian(is_zero_indexes_empty, out);
         if (is_zero_indexes_empty == 0)
             zero_indexes->write(out);
 
@@ -1931,7 +1931,7 @@ public:
             UInt8 is_empty = 0;
             if (getDataArrayAt(i)->size() == 0)
                 is_empty = 1;
-            writeBinary(is_empty, out);
+            writeBinaryLittleEndian(is_empty, out);
             if (is_empty == 1)
                 continue;
             getDataArrayAt(i)->write(out);
