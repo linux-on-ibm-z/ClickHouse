@@ -543,14 +543,14 @@ struct AggregateFunctionSumKahanData
     template <typename Out>
     void write(Out & out) const
     {
-        writeBinary(sum, out);
-        writeBinary(compensation, out);
+        writeBinaryLittleEndian(sum, out);
+        writeBinaryLittleEndian(compensation, out);
     }
 
     void read(ReadBuffer & buf)
     {
-        readBinary(sum, buf);
-        readBinary(compensation, buf);
+        readBinaryLittleEndian(sum, buf);
+        readBinaryLittleEndian(compensation, buf);
     }
 
     [[nodiscard]] T get() const
