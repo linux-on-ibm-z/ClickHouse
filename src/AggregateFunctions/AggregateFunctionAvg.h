@@ -241,7 +241,7 @@ public:
         if constexpr (std::is_unsigned_v<Denominator>)
             writeVarUInt(this->data(place).denominator, buf);
         else /// Floating point denominator type can be used
-            writeBinary(this->data(place).denominator, buf);
+            writeBinaryLittleEndian(this->data(place).denominator, buf);
     }
 
     /// final: AggregateFunctionAvg is not final (AggregateFunctionSumCount derives from it), so the
@@ -258,7 +258,7 @@ public:
         if constexpr (std::is_unsigned_v<Denominator>)
             dst = writeVarUInt(this->data(place).denominator, dst);
         else
-            writeBinary(this->data(place).denominator, dst);
+            writeBinaryLittleEndian(this->data(place).denominator, dst);
 
         return dst;
     }
@@ -270,7 +270,7 @@ public:
         if constexpr (std::is_unsigned_v<Denominator>)
             readVarUInt(this->data(place).denominator, buf);
         else /// Floating point denominator type can be used
-            readBinary(this->data(place).denominator, buf);
+            readBinaryLittleEndian(this->data(place).denominator, buf);
     }
 
     void insertResultInto(AggregateDataPtr __restrict place, IColumn & to, Arena *) const override
