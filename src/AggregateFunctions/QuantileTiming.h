@@ -78,7 +78,11 @@ namespace detail
         void serialize(WriteBuffer & buf) const
         {
             writeBinaryLittleEndian(count, buf);
-            buf.write(reinterpret_cast<const char *>(elems), count * sizeof(elems[0]));
+            if constexpr (std::endian::native == std::endian::little)
+                buf.write(reinterpret_cast<const char *>(elems), count * sizeof(elems[0]));
+            else
+                for (size_t i = 0; i < count; ++i)
+                    writeBinaryLittleEndian(elems[i], buf);
         }
 
         void deserialize(ReadBuffer & buf)
@@ -87,7 +91,11 @@ namespace detail
             readBinaryLittleEndian(new_count, buf);
             if (new_count > TINY_MAX_ELEMS)
                 throw Exception(ErrorCodes::INCORRECT_DATA, "The number of elements {} for the 'tiny' kind of quantileTiming is exceeding the maximum of {}", new_count, TINY_MAX_ELEMS);
-            buf.readStrict(reinterpret_cast<char *>(elems), new_count * sizeof(elems[0]));
+            if constexpr (std::endian::native == std::endian::little)
+                buf.readStrict(reinterpret_cast<char *>(elems), new_count * sizeof(elems[0]));
+            else
+                for (size_t i = 0; i < new_count; ++i)
+                    readBinaryLittleEndian(elems[i], buf);
             count = new_count;
         }
 
@@ -164,7 +172,11 @@ namespace detail
         void serialize(WriteBuffer & buf) const
         {
             writeBinaryLittleEndian(elems.size(), buf);
-            buf.write(reinterpret_cast<const char *>(elems.data()), elems.size() * sizeof(elems[0]));
+            if constexpr (std::endian::native == std::endian::little)
+                buf.write(reinterpret_cast<const char *>(elems.data()), elems.size() * sizeof(elems[0]));
+            else
+                for (size_t i = 0; i < elems.size(); ++i)
+                    writeBinaryLittleEndian(elems[i], buf);
         }
 
         void deserialize(ReadBuffer & buf)
@@ -175,7 +187,11 @@ namespace detail
                 throw Exception(ErrorCodes::INCORRECT_DATA, "The number of elements {} for the 'medium' kind of quantileTiming is too large", size);
 
             elems.resize(size);
-            buf.readStrict(reinterpret_cast<char *>(elems.data()), size * sizeof(elems[0]));
+            if constexpr (std::endian::native == std::endian::little)
+                buf.readStrict(reinterpret_cast<char *>(elems.data()), size * sizeof(elems[0]));
+            else
+                for (size_t i = 0; i < size; ++i)
+                    readBinaryLittleEndian(elems[i], buf);
         }
 
         UInt16 get(double level)
@@ -346,7 +362,15 @@ namespace detail
             if (count * 2 > SMALL_THRESHOLD + BIG_SIZE)
             {
                 /// Simple serialization for a heavily dense case.
-                buf.write(reinterpret_cast<const char *>(this) + sizeof(count), SIZE_OF_LARGE_WITHOUT_COUNT);
+                if constexpr (std::endian::native == std::endian::little)
+                    buf.write(reinterpret_cast<const char *>(this) + sizeof(count), SIZE_OF_LARGE_WITHOUT_COUNT);
+                else
+                {
+                    for (size_t i = 0; i < SMALL_THRESHOLD; ++i)
+                        writeBinaryLittleEndian(count_small[i], buf);
+                    for (size_t i = 0; i < BIG_SIZE; ++i)
+                        writeBinaryLittleEndian(count_big[i], buf);
+                }
             }
             else
             {
@@ -381,7 +405,15 @@ namespace detail
 
             if (count * 2 > SMALL_THRESHOLD + BIG_SIZE)
             {
-                buf.readStrict(reinterpret_cast<char *>(this) + sizeof(count), SIZE_OF_LARGE_WITHOUT_COUNT);
+                if constexpr (std::endian::native == std::endian::little)
+                    buf.readStrict(reinterpret_cast<char *>(this) + sizeof(count), SIZE_OF_LARGE_WITHOUT_COUNT);
+                else
+                {
+                    for (size_t i = 0; i < SMALL_THRESHOLD; ++i)
+                        readBinaryLittleEndian(count_small[i], buf);
+                    for (size_t i = 0; i < BIG_SIZE; ++i)
+                        readBinaryLittleEndian(count_big[i], buf);
+                }
             }
             else
             {
