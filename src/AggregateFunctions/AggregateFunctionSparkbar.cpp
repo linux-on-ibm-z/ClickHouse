@@ -95,25 +95,25 @@ struct AggregateFunctionSparkbarData
 
     void serialize(WriteBuffer & buf) const
     {
-        writeBinary(min_x, buf);
-        writeBinary(max_x, buf);
-        writeBinary(min_y, buf);
-        writeBinary(max_y, buf);
+        writeBinaryLittleEndian(min_x, buf);
+        writeBinaryLittleEndian(max_x, buf);
+        writeBinaryLittleEndian(min_y, buf);
+        writeBinaryLittleEndian(max_y, buf);
         writeVarUInt(points.size(), buf);
 
         for (const auto & elem : points)
         {
-            writeBinary(elem.getKey(), buf);
-            writeBinary(elem.getMapped(), buf);
+            writeBinaryLittleEndian(elem.getKey(), buf);
+            writeBinaryLittleEndian(elem.getMapped(), buf);
         }
     }
 
     void deserialize(ReadBuffer & buf)
     {
-        readBinary(min_x, buf);
-        readBinary(max_x, buf);
-        readBinary(min_y, buf);
-        readBinary(max_y, buf);
+        readBinaryLittleEndian(min_x, buf);
+        readBinaryLittleEndian(max_x, buf);
+        readBinaryLittleEndian(min_y, buf);
+        readBinaryLittleEndian(max_y, buf);
         size_t size = 0;
         readVarUInt(size, buf);
 
@@ -121,8 +121,8 @@ struct AggregateFunctionSparkbarData
         Y y{};
         for (size_t i = 0; i < size; ++i)
         {
-            readBinary(x, buf);
-            readBinary(y, buf);
+            readBinaryLittleEndian(x, buf);
+            readBinaryLittleEndian(y, buf);
             insert(x, y);
         }
     }
