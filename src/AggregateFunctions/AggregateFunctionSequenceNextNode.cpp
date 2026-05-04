@@ -87,10 +87,10 @@ struct NodeBase
         writeVarUInt(size, buf);
         buf.write(data(), size);
 
-        writeBinary(event_time, buf);
+        writeBinaryLittleEndian(event_time, buf);
         UInt64 ulong_bitset = events_bitset.to_ulong();
-        writeBinary(ulong_bitset, buf);
-        writeBinary(can_be_base, buf);
+        writeBinaryLittleEndian(ulong_bitset, buf);
+        writeBinaryLittleEndian(can_be_base, buf);
     }
 
     static Node * read(ReadBuffer & buf, Arena * arena)
@@ -104,11 +104,11 @@ struct NodeBase
         node->size = size;
         buf.readStrict(node->data(), size);
 
-        readBinary(node->event_time, buf);
+        readBinaryLittleEndian(node->event_time, buf);
         UInt64 ulong_bitset;
-        readBinary(ulong_bitset, buf);
+        readBinaryLittleEndian(ulong_bitset, buf);
         node->events_bitset = ulong_bitset;
-        readBinary(node->can_be_base, buf);
+        readBinaryLittleEndian(node->can_be_base, buf);
 
         return node;
     }
@@ -296,7 +296,7 @@ public:
         /// Temporarily do a const_cast to sort the values. It helps to reduce the computational burden on the initiator node.
         this->data(const_cast<AggregateDataPtr>(place)).sort();
 
-        writeBinary(data(place).sorted, buf);
+        writeBinaryLittleEndian(data(place).sorted, buf);
 
         auto & value = data(place).value;
 
@@ -326,7 +326,7 @@ public:
 
     void deserialize(AggregateDataPtr __restrict place, ReadBuffer & buf, std::optional<size_t> /* version */, Arena * arena) const override
     {
-        readBinary(data(place).sorted, buf);
+        readBinaryLittleEndian(data(place).sorted, buf);
 
         UInt64 size;
         readVarUInt(size, buf);
