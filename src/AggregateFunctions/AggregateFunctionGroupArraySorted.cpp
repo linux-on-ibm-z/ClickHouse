@@ -282,11 +282,11 @@ public:
             {
                 if (element.isNull())
                 {
-                    writeBinary(false, buf);
+                    writeBinaryLittleEndian(false, buf);
                 }
                 else
                 {
-                    writeBinary(true, buf);
+                    writeBinaryLittleEndian(true, buf);
                     serialization->serializeBinary(element, buf, {});
                 }
             }
@@ -321,7 +321,7 @@ public:
             for (Field & element : values)
             {
                 bool has_value = false;
-                readBinary(has_value, buf);
+                readBinaryLittleEndian(has_value, buf);
                 if (has_value)
                     serialization->deserializeBinary(element, buf, {});
             }
