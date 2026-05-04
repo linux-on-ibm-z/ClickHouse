@@ -156,11 +156,11 @@ public:
         {
             if (elem.isNull())
             {
-                writeBinary(UInt8(1), buf);
+                writeBinaryLittleEndian(UInt8(1), buf);
             }
             else
             {
-                writeBinary(UInt8(0), buf);
+                writeBinaryLittleEndian(UInt8(0), buf);
                 serialization->serializeBinary(elem, buf, {});
             }
         }
@@ -183,7 +183,7 @@ public:
         for (size_t i = 0; i < size; ++i)
         {
             UInt8 is_null = 0;
-            readBinary(is_null, buf);
+            readBinaryLittleEndian(is_null, buf);
             if (!is_null)
                 serialization->deserializeBinary(arr[i], buf, format_settings);
         }
