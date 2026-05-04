@@ -91,15 +91,15 @@ struct AggregateFunctionVarianceData
     void serialize(WriteBuffer & buf) const
     {
         writeVarUInt(count, buf);
-        writeBinary(mean, buf);
-        writeBinary(m2, buf);
+        writeBinaryLittleEndian(mean, buf);
+        writeBinaryLittleEndian(m2, buf);
     }
 
     void deserialize(ReadBuffer & buf)
     {
         readVarUInt(count, buf);
-        readBinary(mean, buf);
-        readBinary(m2, buf);
+        readBinaryLittleEndian(mean, buf);
+        readBinaryLittleEndian(m2, buf);
     }
 
     UInt64 count = 0;
@@ -265,14 +265,14 @@ struct BaseCovarianceData<true>
 
     void serialize(WriteBuffer & buf) const
     {
-        writeBinary(left_m2, buf);
-        writeBinary(right_m2, buf);
+        writeBinaryLittleEndian(left_m2, buf);
+        writeBinaryLittleEndian(right_m2, buf);
     }
 
     void deserialize(ReadBuffer & buf)
     {
-        readBinary(left_m2, buf);
-        readBinary(right_m2, buf);
+        readBinaryLittleEndian(left_m2, buf);
+        readBinaryLittleEndian(right_m2, buf);
     }
 
     Float64 left_m2 = 0.0;
@@ -351,18 +351,18 @@ struct CovarianceData : public BaseCovarianceData<compute_marginal_moments>
     void serialize(WriteBuffer & buf) const
     {
         writeVarUInt(count, buf);
-        writeBinary(left_mean, buf);
-        writeBinary(right_mean, buf);
-        writeBinary(co_moment, buf);
+        writeBinaryLittleEndian(left_mean, buf);
+        writeBinaryLittleEndian(right_mean, buf);
+        writeBinaryLittleEndian(co_moment, buf);
         Base::serialize(buf);
     }
 
     void deserialize(ReadBuffer & buf)
     {
         readVarUInt(count, buf);
-        readBinary(left_mean, buf);
-        readBinary(right_mean, buf);
-        readBinary(co_moment, buf);
+        readBinaryLittleEndian(left_mean, buf);
+        readBinaryLittleEndian(right_mean, buf);
+        readBinaryLittleEndian(co_moment, buf);
         Base::deserialize(buf);
     }
 
