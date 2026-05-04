@@ -102,22 +102,22 @@ struct AggregateFunctionSequenceMatchData final
 
     void serialize(WriteBuffer & buf) const
     {
-        writeBinary(sorted, buf);
-        writeBinary(events_list.size(), buf);
+        writeBinaryLittleEndian(sorted, buf);
+        writeBinaryLittleEndian(events_list.size(), buf);
 
         for (const auto & events : events_list)
         {
-            writeBinary(events.first, buf);
-            writeBinary(events.second.to_ulong(), buf);
+            writeBinaryLittleEndian(events.first, buf);
+            writeBinaryLittleEndian(events.second.to_ulong(), buf);
         }
     }
 
     void deserialize(ReadBuffer & buf)
     {
-        readBinary(sorted, buf);
+        readBinaryLittleEndian(sorted, buf);
 
         size_t size = 0;
-        readBinary(size, buf);
+        readBinaryLittleEndian(size, buf);
 
         /// The constant is arbitrary (mirrors `windowFunnel`).
         if (size > 100'000'000)
@@ -136,10 +136,10 @@ struct AggregateFunctionSequenceMatchData final
         for (size_t i = 0; i < size; ++i)
         {
             Timestamp timestamp;
-            readBinary(timestamp, buf);
+            readBinaryLittleEndian(timestamp, buf);
 
             UInt64 events = 0;
-            readBinary(events, buf);
+            readBinaryLittleEndian(events, buf);
 
             events_list.emplace_back(timestamp, Events{events});
         }
