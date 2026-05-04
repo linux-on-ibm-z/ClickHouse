@@ -299,17 +299,26 @@ public:
 
     void write(WriteBuffer & buf) const
     {
-        writeBinary(lower_bound, buf);
-        writeBinary(upper_bound, buf);
+        writeBinaryLittleEndian(lower_bound, buf);
+        writeBinaryLittleEndian(upper_bound, buf);
 
         writeVarUInt(size, buf);
-        buf.write(reinterpret_cast<const char *>(points), size * sizeof(WeightedValue));
+        if constexpr (std::endian::native == std::endian::little)
+            buf.write(reinterpret_cast<const char *>(points), size * sizeof(WeightedValue));
+        else
+        {
+            for (size_t i = 0; i < size; ++i)
+            {
+                writeBinaryLittleEndian(points[i].mean, buf);
+                writeBinaryLittleEndian(points[i].weight, buf);
+            }
+        }
     }
 
     void read(ReadBuffer & buf, UInt32 max_bins)
     {
-        readBinary(lower_bound, buf);
-        readBinary(upper_bound, buf);
+        readBinaryLittleEndian(lower_bound, buf);
+        readBinaryLittleEndian(upper_bound, buf);
 
         readVarUInt(size, buf);
         if (size > max_bins * 2)
@@ -319,7 +328,16 @@ public:
             throw Exception(ErrorCodes::TOO_LARGE_ARRAY_SIZE,
                             "Too large array size in histogram (maximum: {})", max_size);
 
-        buf.readStrict(reinterpret_cast<char *>(points), size * sizeof(WeightedValue));
+        if constexpr (std::endian::native == std::endian::little)
+            buf.readStrict(reinterpret_cast<char *>(points), size * sizeof(WeightedValue));
+        else
+        {
+            for (size_t i = 0; i < size; ++i)
+            {
+                readBinaryLittleEndian(points[i].mean, buf);
+                readBinaryLittleEndian(points[i].weight, buf);
+            }
+        }
         sorted_prefix = 0;
         last_inserted = std::numeric_limits<Mean>::lowest();
     }
