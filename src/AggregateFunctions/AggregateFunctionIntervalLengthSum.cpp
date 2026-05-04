@@ -102,22 +102,22 @@ struct AggregateFunctionIntervalLengthSumData
 
     void serialize(WriteBuffer & buf) const
     {
-        writeBinary(sorted, buf);
-        writeBinary(segments.size(), buf);
+        writeBinaryLittleEndian(sorted, buf);
+        writeBinaryLittleEndian(segments.size(), buf);
 
         for (const auto & time_gap : segments)
         {
-            writeBinary(time_gap.first, buf);
-            writeBinary(time_gap.second, buf);
+            writeBinaryLittleEndian(time_gap.first, buf);
+            writeBinaryLittleEndian(time_gap.second, buf);
         }
     }
 
     void deserialize(ReadBuffer & buf)
     {
-        readBinary(sorted, buf);
+        readBinaryLittleEndian(sorted, buf);
 
         size_t size = 0;
-        readBinary(size, buf);
+        readBinaryLittleEndian(size, buf);
 
         if (unlikely(size > MAX_ARRAY_SIZE))
             throw Exception(ErrorCodes::TOO_LARGE_ARRAY_SIZE, "Too large array size (maximum: {})", MAX_ARRAY_SIZE);
@@ -128,8 +128,8 @@ struct AggregateFunctionIntervalLengthSumData
         Segment segment;
         for (size_t i = 0; i < size; ++i)
         {
-            readBinary(segment.first, buf);
-            readBinary(segment.second, buf);
+            readBinaryLittleEndian(segment.first, buf);
+            readBinaryLittleEndian(segment.second, buf);
             segments.emplace_back(segment);
         }
     }
