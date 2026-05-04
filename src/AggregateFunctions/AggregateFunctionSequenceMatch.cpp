@@ -99,22 +99,22 @@ struct AggregateFunctionSequenceMatchData final
 
     void serialize(WriteBuffer & buf) const
     {
-        writeBinary(sorted, buf);
-        writeBinary(events_list.size(), buf);
+        writeBinaryLittleEndian(sorted, buf);
+        writeBinaryLittleEndian(events_list.size(), buf);
 
         for (const auto & events : events_list)
         {
-            writeBinary(events.first, buf);
-            writeBinary(events.second.to_ulong(), buf);
+            writeBinaryLittleEndian(events.first, buf);
+            writeBinaryLittleEndian(events.second.to_ulong(), buf);
         }
     }
 
     void deserialize(ReadBuffer & buf)
     {
-        readBinary(sorted, buf);
+        readBinaryLittleEndian(sorted, buf);
 
         size_t size;
-        readBinary(size, buf);
+        readBinaryLittleEndian(size, buf);
 
         /// If we lose these flags, functionality is broken
         /// If we serialize/deserialize these flags, we have compatibility issues
@@ -127,10 +127,10 @@ struct AggregateFunctionSequenceMatchData final
         for (size_t i = 0; i < size; ++i)
         {
             Timestamp timestamp;
-            readBinary(timestamp, buf);
+            readBinaryLittleEndian(timestamp, buf);
 
             UInt64 events;
-            readBinary(events, buf);
+            readBinaryLittleEndian(events, buf);
 
             events_list.emplace_back(timestamp, Events{events});
         }
