@@ -64,14 +64,14 @@ public:
 
     void serialize(ConstAggregateDataPtr __restrict place, WriteBuffer & buf, std::optional<size_t> /* version */) const override
     {
-        writeBinary(data(place).value, buf);
-        writeBinary(data(place).time, buf);
+        writeBinaryLittleEndian(data(place).value, buf);
+        writeBinaryLittleEndian(data(place).time, buf);
     }
 
     void deserialize(AggregateDataPtr __restrict place, ReadBuffer & buf, std::optional<size_t> /* version */, Arena *) const override
     {
-        readBinary(data(place).value, buf);
-        readBinary(data(place).time, buf);
+        readBinaryLittleEndian(data(place).value, buf);
+        readBinaryLittleEndian(data(place).time, buf);
     }
 
     void insertResultInto(AggregateDataPtr __restrict place, IColumn & to, Arena *) const override
