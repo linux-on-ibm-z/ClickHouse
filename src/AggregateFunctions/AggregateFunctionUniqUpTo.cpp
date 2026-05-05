@@ -109,19 +109,43 @@ struct AggregateFunctionUniqUpToData
 
     void write(WriteBuffer & wb, UInt8 threshold) const
     {
-        writeBinary(count, wb);
+        writeBinaryLittleEndian(count, wb);
 
         /// Write values only if the state is not overflowed. Otherwise, they are not needed, and only the fact that the state is overflowed is important.
         if (count <= threshold)
-            wb.write(data_ptr, count * sizeof(T));
+        {
+            if constexpr (std::endian::native == std::endian::little)
+            {
+                wb.write(data_ptr, count * sizeof(T));
+            }
+            else
+            {
+                for (size_t i = 0; i < count; ++i)
+                    writeBinaryLittleEndian(load(i), wb);
+            }
+        }
     }
 
     void read(ReadBuffer & rb, UInt8 threshold)
     {
-        readBinary(count, rb);
+        readBinaryLittleEndian(count, rb);
 
         if (count <= threshold)
-            rb.readStrict(data_ptr, count * sizeof(T));
+        {
+            if constexpr (std::endian::native == std::endian::little)
+            {
+                rb.readStrict(data_ptr, count * sizeof(T));
+            }
+            else
+            {
+                for (size_t i = 0; i < count; ++i)
+                {
+                    T value;
+                    readBinaryLittleEndian(value, rb);
+                    store(i, value);
+                }
+            }
+        }
     }
 
     /// ALWAYS_INLINE is required to have better code layout for uniqUpTo function
