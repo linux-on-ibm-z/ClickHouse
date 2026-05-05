@@ -53,20 +53,20 @@ struct AggregateFunctionSimpleLinearRegressionData final
 
     void serialize(WriteBuffer & buf) const
     {
-        writeBinary(count, buf);
-        writeBinary(sum_x, buf);
-        writeBinary(sum_y, buf);
-        writeBinary(sum_xx, buf);
-        writeBinary(sum_xy, buf);
+        writeBinaryLittleEndian(count, buf);
+        writeBinaryLittleEndian(sum_x, buf);
+        writeBinaryLittleEndian(sum_y, buf);
+        writeBinaryLittleEndian(sum_xx, buf);
+        writeBinaryLittleEndian(sum_xy, buf);
     }
 
     void deserialize(ReadBuffer & buf)
     {
-        readBinary(count, buf);
-        readBinary(sum_x, buf);
-        readBinary(sum_y, buf);
-        readBinary(sum_xx, buf);
-        readBinary(sum_xy, buf);
+        readBinaryLittleEndian(count, buf);
+        readBinaryLittleEndian(sum_x, buf);
+        readBinaryLittleEndian(sum_y, buf);
+        readBinaryLittleEndian(sum_xx, buf);
+        readBinaryLittleEndian(sum_xy, buf);
     }
 
     Float64 getK() const
