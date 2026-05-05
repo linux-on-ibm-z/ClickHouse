@@ -57,12 +57,24 @@ struct VarMoments
 
     void write(WriteBuffer & buf) const
     {
-        writePODBinary(*this, buf);
+        if constexpr (std::endian::native == std::endian::little)
+            writePODBinary(*this, buf);
+        else
+        {
+            for (size_t i = 0; i <= _level; ++i)
+                writeBinaryLittleEndian(m[i], buf);
+        }
     }
 
     void read(ReadBuffer & buf)
     {
-        readPODBinary(*this, buf);
+        if constexpr (std::endian::native == std::endian::little)
+            readPODBinary(*this, buf);
+        else
+        {
+            for (size_t i = 0; i <= _level; ++i)
+                readBinaryLittleEndian(m[i], buf);
+        }
     }
 
     T get() const
@@ -169,12 +181,28 @@ struct CovarMoments
 
     void write(WriteBuffer & buf) const
     {
-        writePODBinary(*this, buf);
+        if constexpr (std::endian::native == std::endian::little)
+            writePODBinary(*this, buf);
+        else
+        {
+            writeBinaryLittleEndian(m0, buf);
+            writeBinaryLittleEndian(x1, buf);
+            writeBinaryLittleEndian(y1, buf);
+            writeBinaryLittleEndian(xy, buf);
+        }
     }
 
     void read(ReadBuffer & buf)
     {
-        readPODBinary(*this, buf);
+        if constexpr (std::endian::native == std::endian::little)
+            readPODBinary(*this, buf);
+        else
+        {
+            readBinaryLittleEndian(m0, buf);
+            readBinaryLittleEndian(x1, buf);
+            readBinaryLittleEndian(y1, buf);
+            readBinaryLittleEndian(xy, buf);
+        }
     }
 
     T get() const
@@ -237,12 +265,32 @@ struct CorrMoments
 
     void write(WriteBuffer & buf) const
     {
-        writePODBinary(*this, buf);
+        if constexpr (std::endian::native == std::endian::little)
+            writePODBinary(*this, buf);
+        else
+        {
+            writeBinaryLittleEndian(m0, buf);
+            writeBinaryLittleEndian(x1, buf);
+            writeBinaryLittleEndian(y1, buf);
+            writeBinaryLittleEndian(xy, buf);
+            writeBinaryLittleEndian(x2, buf);
+            writeBinaryLittleEndian(y2, buf);
+        }
     }
 
     void read(ReadBuffer & buf)
     {
-        readPODBinary(*this, buf);
+        if constexpr (std::endian::native == std::endian::little)
+            readPODBinary(*this, buf);
+        else
+        {
+            readBinaryLittleEndian(m0, buf);
+            readBinaryLittleEndian(x1, buf);
+            readBinaryLittleEndian(y1, buf);
+            readBinaryLittleEndian(xy, buf);
+            readBinaryLittleEndian(x2, buf);
+            readBinaryLittleEndian(y2, buf);
+        }
     }
 
     T NO_SANITIZE_UNDEFINED get() const
@@ -308,12 +356,32 @@ struct TTestMoments
 
     void write(WriteBuffer & buf) const
     {
-        writePODBinary(*this, buf);
+        if constexpr (std::endian::native == std::endian::little)
+            writePODBinary(*this, buf);
+        else
+        {
+            writeBinaryLittleEndian(nx, buf);
+            writeBinaryLittleEndian(ny, buf);
+            writeBinaryLittleEndian(x1, buf);
+            writeBinaryLittleEndian(y1, buf);
+            writeBinaryLittleEndian(x2, buf);
+            writeBinaryLittleEndian(y2, buf);
+        }
     }
 
     void read(ReadBuffer & buf)
     {
-        readPODBinary(*this, buf);
+        if constexpr (std::endian::native == std::endian::little)
+            readPODBinary(*this, buf);
+        else
+        {
+            readBinaryLittleEndian(nx, buf);
+            readBinaryLittleEndian(ny, buf);
+            readBinaryLittleEndian(x1, buf);
+            readBinaryLittleEndian(y1, buf);
+            readBinaryLittleEndian(x2, buf);
+            readBinaryLittleEndian(y2, buf);
+        }
     }
 
     Float64 getMeanX() const
@@ -391,12 +459,28 @@ struct ZTestMoments
 
     void write(WriteBuffer & buf) const
     {
-        writePODBinary(*this, buf);
+        if constexpr (std::endian::native == std::endian::little)
+            writePODBinary(*this, buf);
+        else
+        {
+            writeBinaryLittleEndian(nx, buf);
+            writeBinaryLittleEndian(ny, buf);
+            writeBinaryLittleEndian(x1, buf);
+            writeBinaryLittleEndian(y1, buf);
+        }
     }
 
     void read(ReadBuffer & buf)
     {
-        readPODBinary(*this, buf);
+        if constexpr (std::endian::native == std::endian::little)
+            readPODBinary(*this, buf);
+        else
+        {
+            readBinaryLittleEndian(nx, buf);
+            readBinaryLittleEndian(ny, buf);
+            readBinaryLittleEndian(x1, buf);
+            readBinaryLittleEndian(y1, buf);
+        }
     }
 
     Float64 getMeanX() const
