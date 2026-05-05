@@ -201,11 +201,23 @@ struct HashTableCell
     void setMapped(const value_type & /*value*/) {}
 
     /// Serialization, in binary and text form.
-    void write(DB::WriteBuffer & wb) const         { DB::writeBinaryLittleEndian(key, wb); }
+    void write(DB::WriteBuffer & wb) const
+    {
+        if constexpr (std::is_same_v<Key, std::string_view>)
+            DB::writeBinary(key, wb);
+        else
+            DB::writeBinaryLittleEndian(key, wb);
+    }
     void writeText(DB::WriteBuffer & wb) const     { DB::writeDoubleQuoted(key, wb); }
 
     /// Deserialization, in binary and text form.
-    void read(DB::ReadBuffer & rb)        { DB::readBinaryLittleEndian(key, rb); }
+    void read(DB::ReadBuffer & rb)
+    {
+        if constexpr (std::is_same_v<Key, std::string_view>)
+            DB::readBinary(key, rb);
+        else
+            DB::readBinaryLittleEndian(key, rb);
+    }
     void readText(DB::ReadBuffer & rb)    { DB::readDoubleQuoted(key, rb); }
 
 };

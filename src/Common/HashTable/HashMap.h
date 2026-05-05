@@ -104,8 +104,15 @@ struct HashMapCell
     /// Serialization, in binary and text form.
     void write(DB::WriteBuffer & wb) const
     {
-        DB::writeBinary(value.first, wb);
-        DB::writeBinary(value.second, wb);
+        if constexpr (std::is_same_v<Key, std::string_view>)
+            DB::writeBinary(value.first, wb);
+        else
+            DB::writeBinaryLittleEndian(value.first, wb);
+        
+        if constexpr (std::is_same_v<Mapped, std::string_view>)
+            DB::writeBinary(value.second, wb);
+        else
+            DB::writeBinaryLittleEndian(value.second, wb);
     }
 
     void writeText(DB::WriteBuffer & wb) const
@@ -118,8 +125,15 @@ struct HashMapCell
     /// Deserialization, in binary and text form.
     void read(DB::ReadBuffer & rb)
     {
-        DB::readBinary(value.first, rb);
-        DB::readBinary(value.second, rb);
+        if constexpr (std::is_same_v<Key, std::string_view>)
+            DB::readBinary(value.first, rb);
+        else
+            DB::readBinaryLittleEndian(value.first, rb);
+        
+        if constexpr (std::is_same_v<Mapped, std::string_view>)
+            DB::readBinary(value.second, rb);
+        else
+            DB::readBinaryLittleEndian(value.second, rb);
     }
 
     void readText(DB::ReadBuffer & rb)
