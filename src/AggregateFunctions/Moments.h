@@ -166,12 +166,24 @@ struct VarMoments
 
     void write(WriteBuffer & buf) const
     {
-        writePODBinary(*this, buf);
+        if constexpr (std::endian::native == std::endian::little)
+            writePODBinary(*this, buf);
+        else
+        {
+            for (size_t i = 0; i <= _level; ++i)
+                writeBinaryLittleEndian(m[i], buf);
+        }
     }
 
     void read(ReadBuffer & buf)
     {
-        readPODBinary(*this, buf);
+        if constexpr (std::endian::native == std::endian::little)
+            readPODBinary(*this, buf);
+        else
+        {
+            for (size_t i = 0; i <= _level; ++i)
+                readBinaryLittleEndian(m[i], buf);
+        }
     }
 
     T get() const
@@ -378,12 +390,28 @@ struct CovarMoments
 
     void write(WriteBuffer & buf) const
     {
-        writePODBinary(*this, buf);
+        if constexpr (std::endian::native == std::endian::little)
+            writePODBinary(*this, buf);
+        else
+        {
+            writeBinaryLittleEndian(m0, buf);
+            writeBinaryLittleEndian(x1, buf);
+            writeBinaryLittleEndian(y1, buf);
+            writeBinaryLittleEndian(xy, buf);
+        }
     }
 
     void read(ReadBuffer & buf)
     {
-        readPODBinary(*this, buf);
+        if constexpr (std::endian::native == std::endian::little)
+            readPODBinary(*this, buf);
+        else
+        {
+            readBinaryLittleEndian(m0, buf);
+            readBinaryLittleEndian(x1, buf);
+            readBinaryLittleEndian(y1, buf);
+            readBinaryLittleEndian(xy, buf);
+        }
     }
 
     T get() const
@@ -558,12 +586,32 @@ struct CorrMoments
 
     void write(WriteBuffer & buf) const
     {
-        writePODBinary(*this, buf);
+        if constexpr (std::endian::native == std::endian::little)
+            writePODBinary(*this, buf);
+        else
+        {
+            writeBinaryLittleEndian(m0, buf);
+            writeBinaryLittleEndian(x1, buf);
+            writeBinaryLittleEndian(y1, buf);
+            writeBinaryLittleEndian(xy, buf);
+            writeBinaryLittleEndian(x2, buf);
+            writeBinaryLittleEndian(y2, buf);
+        }
     }
 
     void read(ReadBuffer & buf)
     {
-        readPODBinary(*this, buf);
+        if constexpr (std::endian::native == std::endian::little)
+            readPODBinary(*this, buf);
+        else
+        {
+            readBinaryLittleEndian(m0, buf);
+            readBinaryLittleEndian(x1, buf);
+            readBinaryLittleEndian(y1, buf);
+            readBinaryLittleEndian(xy, buf);
+            readBinaryLittleEndian(x2, buf);
+            readBinaryLittleEndian(y2, buf);
+        }
     }
 
     T NO_SANITIZE_UNDEFINED get() const
@@ -629,12 +677,32 @@ struct TTestMoments
 
     void write(WriteBuffer & buf) const
     {
-        writePODBinary(*this, buf);
+        if constexpr (std::endian::native == std::endian::little)
+            writePODBinary(*this, buf);
+        else
+        {
+            writeBinaryLittleEndian(nx, buf);
+            writeBinaryLittleEndian(ny, buf);
+            writeBinaryLittleEndian(x1, buf);
+            writeBinaryLittleEndian(y1, buf);
+            writeBinaryLittleEndian(x2, buf);
+            writeBinaryLittleEndian(y2, buf);
+        }
     }
 
     void read(ReadBuffer & buf)
     {
-        readPODBinary(*this, buf);
+        if constexpr (std::endian::native == std::endian::little)
+            readPODBinary(*this, buf);
+        else
+        {
+            readBinaryLittleEndian(nx, buf);
+            readBinaryLittleEndian(ny, buf);
+            readBinaryLittleEndian(x1, buf);
+            readBinaryLittleEndian(y1, buf);
+            readBinaryLittleEndian(x2, buf);
+            readBinaryLittleEndian(y2, buf);
+        }
     }
 
     Float64 getMeanX() const
@@ -713,12 +781,28 @@ struct OneSampleTTestMoments
 
     void write(WriteBuffer & buf) const
     {
-        writePODBinary(*this, buf);
+        if constexpr (std::endian::native == std::endian::little)
+            writePODBinary(*this, buf);
+        else
+        {
+            writeBinaryLittleEndian(n, buf);
+            writeBinaryLittleEndian(x1, buf);
+            writeBinaryLittleEndian(x2, buf);
+            writeBinaryLittleEndian(population_mean, buf);
+        }
     }
 
     void read(ReadBuffer & buf)
     {
-        readPODBinary(*this, buf);
+        if constexpr (std::endian::native == std::endian::little)
+            readPODBinary(*this, buf);
+        else
+        {
+            readBinaryLittleEndian(n, buf);
+            readBinaryLittleEndian(x1, buf);
+            readBinaryLittleEndian(x2, buf);
+            readBinaryLittleEndian(population_mean, buf);
+        }
     }
 
     Float64 getMean() const
@@ -809,12 +893,28 @@ struct ZTestMoments
 
     void write(WriteBuffer & buf) const
     {
-        writePODBinary(*this, buf);
+        if constexpr (std::endian::native == std::endian::little)
+            writePODBinary(*this, buf);
+        else
+        {
+            writeBinaryLittleEndian(nx, buf);
+            writeBinaryLittleEndian(ny, buf);
+            writeBinaryLittleEndian(x1, buf);
+            writeBinaryLittleEndian(y1, buf);
+        }
     }
 
     void read(ReadBuffer & buf)
     {
-        readPODBinary(*this, buf);
+        if constexpr (std::endian::native == std::endian::little)
+            readPODBinary(*this, buf);
+        else
+        {
+            readBinaryLittleEndian(nx, buf);
+            readBinaryLittleEndian(ny, buf);
+            readBinaryLittleEndian(x1, buf);
+            readBinaryLittleEndian(y1, buf);
+        }
     }
 
     Float64 getMeanX() const
@@ -900,9 +1000,9 @@ struct AnalysisOfVarianceMoments
 
     void write(WriteBuffer & buf) const
     {
-        writeVectorBinary(xs1, buf);
-        writeVectorBinary(xs2, buf);
-        writeVectorBinary(ns, buf);
+        writeVectorBinaryLittleEndian(xs1, buf);
+        writeVectorBinaryLittleEndian(xs2, buf);
+        writeVectorBinaryLittleEndian(ns, buf);
     }
 
     void read(ReadBuffer & buf)
@@ -910,9 +1010,9 @@ struct AnalysisOfVarianceMoments
         /// add and merge cap the group count at MAX_GROUPS_NUMBER via resizeIfNeeded, but read
         /// trusts the serialized lengths. Enforce the same bound here, before the vectors are
         /// resized, so a crafted state cannot exceed the aggregate's own invariant.
-        readVectorBinary(xs1, buf, MAX_GROUPS_NUMBER);
-        readVectorBinary(xs2, buf, MAX_GROUPS_NUMBER);
-        readVectorBinary(ns, buf, MAX_GROUPS_NUMBER);
+        readVectorBinaryLittleEndian(xs1, buf, MAX_GROUPS_NUMBER);
+        readVectorBinaryLittleEndian(xs2, buf, MAX_GROUPS_NUMBER);
+        readVectorBinaryLittleEndian(ns, buf, MAX_GROUPS_NUMBER);
 
         /// The three vectors hold one entry per group and must stay equal in length.
         /// The finalize path iterates up to xs1.size() and indexes xs2 and ns with the
