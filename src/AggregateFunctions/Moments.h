@@ -482,16 +482,16 @@ struct AnalysisOfVarianceMoments
 
     void write(WriteBuffer & buf) const
     {
-        writeVectorBinary(xs1, buf);
-        writeVectorBinary(xs2, buf);
-        writeVectorBinary(ns, buf);
+        writeBinaryLittleEndian(xs1, buf);
+        writeBinaryLittleEndian(xs2, buf);
+        writeBinaryLittleEndian(ns, buf);
     }
 
     void read(ReadBuffer & buf)
     {
-        readVectorBinary(xs1, buf);
-        readVectorBinary(xs2, buf);
-        readVectorBinary(ns, buf);
+        readBinaryLittleEndian(xs1, buf);
+        readBinaryLittleEndian(xs2, buf);
+        readBinaryLittleEndian(ns, buf);
     }
 
     Float64 getMeanAll() const
