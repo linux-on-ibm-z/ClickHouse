@@ -71,7 +71,7 @@ struct CrossTabCountsState
 
     void serialize(WriteBuffer & buf) const
     {
-        writeBinary(count, buf);
+        writeBinaryLittleEndian(count, buf);
         count_a.write(buf);
         count_b.write(buf);
         count_ab.write(buf);
@@ -79,7 +79,7 @@ struct CrossTabCountsState
 
     void deserialize(ReadBuffer & buf)
     {
-        readBinary(count, buf);
+        readBinaryLittleEndian(count, buf);
         count_a.read(buf);
         count_b.read(buf);
         count_ab.read(buf);
