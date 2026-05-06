@@ -222,7 +222,7 @@ public:
     {
         bool flag = getFlag(place);
         if constexpr (serialize_flag)
-            writeBinary(flag, buf);
+            writeBinaryLittleEndian(flag, buf);
         if (flag)
             nested_function->serialize(nestedPlace(place), buf, version);
     }
@@ -231,7 +231,7 @@ public:
     {
         bool flag = true;
         if constexpr (serialize_flag)
-            readBinary(flag, buf);
+            readBinaryLittleEndian(flag, buf);
         if (flag)
         {
             setFlag(place);
