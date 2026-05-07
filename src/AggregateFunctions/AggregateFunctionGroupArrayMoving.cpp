@@ -135,7 +135,11 @@ public:
         const auto & value = this->data(place).value;
         size_t size = value.size();
         writeVarUInt(size, buf);
-        buf.write(reinterpret_cast<const char *>(value.data()), size * sizeof(value[0]));
+        if constexpr (std::endian::native == std::endian::little)
+            buf.write(reinterpret_cast<const char *>(value.data()), size * sizeof(value[0]));
+        else
+            for (size_t i = 0; i < size; ++i)
+                writeBinaryLittleEndian(value[i], buf);
     }
 
     void deserialize(AggregateDataPtr __restrict place, ReadBuffer & buf, std::optional<size_t> /* version */, Arena * arena) const override
@@ -151,7 +155,11 @@ public:
         {
             auto & value = this->data(place).value;
             value.resize(size, arena);
-            buf.readStrict(reinterpret_cast<char *>(value.data()), size * sizeof(value[0]));
+            if constexpr (std::endian::native == std::endian::little)
+                buf.readStrict(reinterpret_cast<char *>(value.data()), size * sizeof(value[0]));
+            else
+                for (size_t i = 0; i < size; ++i)
+                    readBinaryLittleEndian(value[i], buf);
             this->data(place).sum = value.back();
         }
     }
