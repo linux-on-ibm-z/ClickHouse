@@ -6,7 +6,9 @@
 #include <Common/PODArray.h>
 #include <Core/AccurateComparison.h>
 #include <IO/WriteBuffer.h>
+#include <IO/WriteHelpers.h>
 #include <IO/ReadBuffer.h>
+#include <IO/ReadHelpers.h>
 #include <IO/VarInt.h>
 
 
@@ -306,7 +308,14 @@ public:
         if (unmerged == 0 && centroids.size() <= params.max_centroids)
         {
             writeVarUInt(centroids.size(), buf);
-            buf.write(reinterpret_cast<const char *>(centroids.data()), centroids.size() * sizeof(centroids[0]));
+            if constexpr (std::endian::native == std::endian::little)
+                buf.write(reinterpret_cast<const char *>(centroids.data()), centroids.size() * sizeof(centroids[0]));
+            else
+                for (const auto & c : centroids)
+                {
+                    writeBinaryLittleEndian(c.mean, buf);
+                    writeBinaryLittleEndian(c.count, buf);
+                }
             return;
         }
 
@@ -316,7 +325,14 @@ public:
         tmp.unmerged = unmerged;
         tmp.compress();
         writeVarUInt(tmp.centroids.size(), buf);
-        buf.write(reinterpret_cast<const char *>(tmp.centroids.data()), tmp.centroids.size() * sizeof(tmp.centroids[0]));
+        if constexpr (std::endian::native == std::endian::little)
+            buf.write(reinterpret_cast<const char *>(tmp.centroids.data()), tmp.centroids.size() * sizeof(tmp.centroids[0]));
+        else
+            for (const auto & c : tmp.centroids)
+            {
+                writeBinaryLittleEndian(c.mean, buf);
+                writeBinaryLittleEndian(c.count, buf);
+            }
     }
 
     void deserialize(ReadBuffer & buf)
@@ -332,7 +348,14 @@ public:
 
         centroids.resize(size);
         // From now, TDigest will be in invalid state if exception is thrown.
-        buf.readStrict(reinterpret_cast<char *>(centroids.data()), size * sizeof(centroids[0]));
+        if constexpr (std::endian::native == std::endian::little)
+            buf.readStrict(reinterpret_cast<char *>(centroids.data()), size * sizeof(centroids[0]));
+        else
+            for (auto & c : centroids)
+            {
+                readBinaryLittleEndian(c.mean, buf);
+                readBinaryLittleEndian(c.count, buf);
+            }
 
         for (const auto & c : centroids)
         {
