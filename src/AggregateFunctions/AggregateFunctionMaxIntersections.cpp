@@ -129,12 +129,9 @@ public:
 
         for (size_t i = 0; i < size; ++i)
         {
-            writePODBinary(value[i].first, buf);
+            writeBinaryLittleEndian(value[i].first, buf);
             writePODBinary(zero_padding, buf);
-            if constexpr (std::endian::native == std::endian::little)
-                writePODBinary(value[i].second, buf);
-            else
-                writePODBinary(std::byteswap(value[i].second), buf);
+            writeBinaryLittleEndian(value[i].second, buf);
         }
     }
 
@@ -150,7 +147,19 @@ public:
         auto & value = this->data(place).value;
 
         value.resize(size, arena);
-        buf.readStrict(reinterpret_cast<char *>(value.data()), size * sizeof(value[0]));
+        if constexpr (std::endian::native == std::endian::little)
+            buf.readStrict(reinterpret_cast<char *>(value.data()), size * sizeof(value[0]));
+        else
+        {
+            /// Read pairs with proper endianness handling to match serialize()
+            char zero_padding[offsetof(typename MaxIntersectionsData<PointType>::Value, second) - sizeof(value[0].first)]{};
+            for (size_t i = 0; i < size; ++i)
+            {
+                readBinaryLittleEndian(value[i].first, buf);
+                readPODBinary(zero_padding, buf);
+                readBinaryLittleEndian(value[i].second, buf);
+            }
+        }
     }
 
     void insertResultInto(AggregateDataPtr __restrict place, IColumn & to, Arena *) const override
