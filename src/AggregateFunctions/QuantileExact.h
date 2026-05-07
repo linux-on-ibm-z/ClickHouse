@@ -1,8 +1,10 @@
 #pragma once
 
 #include <IO/ReadBuffer.h>
+#include <IO/ReadHelpers.h>
 #include <IO/VarInt.h>
 #include <IO/WriteBuffer.h>
+#include <IO/WriteHelpers.h>
 #include <Common/NaNUtils.h>
 #include <Common/PODArray.h>
 #include <base/extended_types.h>
@@ -63,7 +65,11 @@ struct QuantileExactBase
     {
         size_t size = array.size();
         writeVarUInt(size, buf);
-        buf.write(reinterpret_cast<const char *>(array.data()), size * sizeof(array[0]));
+        if constexpr (std::endian::native == std::endian::little)
+            buf.write(reinterpret_cast<const char *>(array.data()), size * sizeof(array[0]));
+        else
+            for (size_t i = 0; i < size; ++i)
+                writeBinaryLittleEndian(array[i], buf);
     }
 
     void deserialize(ReadBuffer & buf)
@@ -74,7 +80,11 @@ struct QuantileExactBase
             throw Exception(ErrorCodes::TOO_LARGE_ARRAY_SIZE,
                             "Too large array size (maximum: {})", QUANTILE_EXACT_MAX_ARRAY_SIZE);
         array.resize(size);
-        buf.readStrict(reinterpret_cast<char *>(array.data()), size * sizeof(array[0]));
+        if constexpr (std::endian::native == std::endian::little)
+            buf.readStrict(reinterpret_cast<char *>(array.data()), size * sizeof(array[0]));
+        else
+            for (size_t i = 0; i < size; ++i)
+                readBinaryLittleEndian(array[i], buf);
     }
 
     Value get(Float64 level)
