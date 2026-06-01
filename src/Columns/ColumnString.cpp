@@ -860,7 +860,7 @@ void ColumnString::updateHashWithValue(size_t n, SipHash & hash) const
     /// For compatibility, which is required in certain aggregate function states.
     size_t size_used_in_hash = string_size + 1;
 
-    hash.update(reinterpret_cast<const char *>(&size_used_in_hash), sizeof(size_used_in_hash));
+    hash.update(size_used_in_hash);
     hash.update(reinterpret_cast<const char *>(&chars[offset]), string_size);
     /// This is for compatibility
     hash.update(UInt8(0));
