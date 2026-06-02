@@ -26,6 +26,7 @@ namespace DB
 namespace ErrorCodes
 {
     extern const int ILLEGAL_TYPE_OF_ARGUMENT;
+    extern const int BAD_ARGUMENTS;
 }
 
 namespace
@@ -332,10 +333,40 @@ public:
 
                 auto col_res = ColumnArray::create(inner_type->createColumn());
 
-                for (size_t i = 0; i < input_rows_count; ++i)
+                if (needsEndiannessConversionForArray(inner_type))
                 {
-                    std::string_view ref = col_from->getDataAt(i);
-                    col_res->insertData(ref.data(), ref.size());
+                    auto & nested_column = col_res->getData();
+                    size_t field_size = nested_column.sizeOfValueIfFixed();
+
+                    for (size_t i = 0; i < input_rows_count; ++i)
+                    {
+                        std::string_view ref = col_from->getDataAt(i);
+
+                        if (ref.size() % field_size != 0)
+                            throw Exception(ErrorCodes::BAD_ARGUMENTS,
+                                "Incorrect length {} for array element size {}",
+				ref.size(), field_size);
+
+                        size_t num_elements = ref.size() / field_size;
+                        const char * pos = ref.data();
+
+                        for (size_t j = 0; j < num_elements; ++j)
+                        {
+                            auto span = nested_column.insertRawUninitialized(1);
+                            reverseMemcpy(span.data(), pos, field_size);
+                            pos += field_size;
+                        }
+
+                        col_res->getOffsets().push_back(col_res->getOffsets().back() + num_elements);
+                    }
+                }
+                else
+                {
+                    for (size_t i = 0; i < input_rows_count; ++i)
+                    {
+		        std::string_view ref = col_from->getDataAt(i);
+                        col_res->insertData(ref.data(), ref.size());
+                    }
                 }
 
                 result = std::move(col_res);
@@ -388,6 +419,15 @@ private:
             type.isFloat() ||
             type.isUUID() ||
             type.isDecimal();
+    }
+
+    static bool needsEndiannessConversionForArray(const DataTypePtr & inner_type)
+    {
+        if constexpr (std::endian::native == std::endian::little)
+            return false;
+
+        WhichDataType inner_which(inner_type);
+        return canBeReinterpretedAsNumeric(inner_which) && inner_type->getSizeOfValueInMemory() > 1;
     }
 
     static void NO_INLINE executeToFixedString(const IColumn & src, ColumnFixedString & dst, size_t n, size_t input_rows_count)
