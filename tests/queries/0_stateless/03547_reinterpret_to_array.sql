@@ -1,6 +1,8 @@
 -- Tests for reinterpret(<source string>, <array_of_fixed_type>)
 
 SELECT 'Verify correct destination type is instantiated';
+SELECT toTypeName(reinterpret(x'01', 'Array(Int8)'));
+SELECT toTypeName(reinterpret(x'01', 'Array(UInt8)'));
 SELECT toTypeName(reinterpret(x'01010101', 'Array(Int32)'));
 SELECT toTypeName(reinterpret(x'01010101', 'Array(UInt32)'));
 SELECT toTypeName(reinterpret(x'01010101', 'Array(Float32)'));
@@ -16,6 +18,10 @@ SELECT toTypeName(reinterpret(x'0101010101010101', 'Array(String)')); -- { serve
 SELECT toTypeName(reinterpret(x'0101010101010101', 'Array(Array(Int32))')); -- { serverError ILLEGAL_TYPE_OF_ARGUMENT }
 
 SELECT 'Verify few output values are correct';
+
+SELECT reinterpret(x'01', 'Int8');
+SELECT reinterpret(x'01', 'Array(Int8)');
+SELECT reinterpret(x'0102', 'Array(Int8)');
 
 SELECT reinterpret(x'01010101', 'Int32');
 SELECT reinterpret(x'01010101', 'Array(Int32)');
