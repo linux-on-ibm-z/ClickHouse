@@ -250,7 +250,6 @@ public:
 
                     size_t offset = 0;
                     size_t copy_size = std::min(step, sizeof(ToFieldType));
-                    size_t index = data_from.size() - copy_size;
 
                     if (sizeof(ToFieldType) <= step)
                         vec_res.resize(input_rows_count);
@@ -264,7 +263,7 @@ public:
                         else
                         {
                             size_t offset_to = sizeof(ToFieldType) > copy_size ? sizeof(ToFieldType) - copy_size : 0;
-                            reverseMemcpy(reinterpret_cast<char*>(&vec_res[i]) + offset_to, &data_from[index - offset], copy_size);
+                            reverseMemcpy(reinterpret_cast<char*>(&vec_res[i]) + offset_to, &data_from[offset], copy_size);
                         }
                         offset += step;
                     }
