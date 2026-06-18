@@ -598,9 +598,12 @@ struct HashMethodKeysFixed
         new_columns.reserve(key_columns.size());
 
         Sizes new_sizes;
+        const size_t num_keys = key_sizes.size();
+        new_sizes.reserve(num_keys);
+
         auto fill_size = [&](size_t size)
         {
-            for (size_t i = 0; i < key_sizes.size(); ++i)
+            for (size_t i = 0; i < num_keys; ++i)
             {
                 if (key_sizes[i] == size)
                 {
