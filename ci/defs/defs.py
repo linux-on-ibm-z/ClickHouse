@@ -35,6 +35,7 @@ class RunnerLabels:
     ARM_SMALL_MEM = ["self-hosted", "arm-small-mem"]
     MACOS_ARM_SMALL = ["self-hosted", "macos_m2"]
     MACOS_AMD_SMALL = ["self-hosted", "amd_macos_m1"]
+    S390X_LARGE = ["self-hosted", "s390x-large"]
     S390X_MEDIUM = ["self-hosted", "s390x-medium"]
     S390X_SMALL = ["self-hosted", "s390x-small"]
     STYLE_CHECK_AMD = ["self-hosted", "style-checker"]

@@ -292,7 +292,7 @@ class JobConfigs:
         Job.ParamSet(
             parameter=BuildTypes.S390X_DEBUG,
             provides=[ArtifactNames.CH_S390X_DEBUG],
-            runs_on=RunnerLabels.BUILDER_S390X,
+            runs_on=RunnerLabels.S390X_LARGE,
             timeout=3600 * 6,
         ),
         Job.ParamSet(
@@ -303,7 +303,7 @@ class JobConfigs:
                 ArtifactNames.RPM_S390X_RELEASE,
                 ArtifactNames.TGZ_S390X_RELEASE,
             ],
-            runs_on=RunnerLabels.BUILDER_S390X,
+            runs_on=RunnerLabels.S390X_LARGE,
             timeout=3600 * 6,
         ),
         Job.ParamSet(
@@ -543,7 +543,7 @@ class JobConfigs:
         Job.ParamSet(
             parameter=BuildTypes.S390X_BINARY,
             provides=[ArtifactNames.CH_S390X],
-            runs_on=RunnerLabels.BUILDER_S390X,
+            runs_on=RunnerLabels.S390X_LARGE,
         ),
         Job.ParamSet(
             parameter=BuildTypes.LOONGARCH64,
