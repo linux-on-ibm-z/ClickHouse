@@ -55,6 +55,7 @@ RUN apt-get update \
     && apt-get install --yes \
         libgmp-dev \
         libmpfr-dev \
+	make \
     && wget --waitretry 5 --retry-connrefused --retry-on-host-error --retry-on-http-error 403 --tries 10 https://ftp.gnu.org/gnu/gdb/gdb-$GDB_VERSION.tar.gz \
     && tar -xvf gdb-$GDB_VERSION.tar.gz \
     && cd gdb-$GDB_VERSION \
