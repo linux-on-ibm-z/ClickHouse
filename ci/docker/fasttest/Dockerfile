@@ -134,12 +134,6 @@ RUN ARCH=$(uname -m) && \
     rustup target add riscv64gc-unknown-linux-gnu && \
     rustup target add s390x-unknown-linux-gnu
 
-# Note, libmpfr6 is also a requirement for gdb
-COPY --from=clickhouse/cctools:859fb360308eb8ac47ad /opt/gdb /opt/gdb
-# Give suid to gdb to grant it attach permissions
-RUN chmod u+s /opt/gdb/bin/gdb
-ENV PATH="/opt/gdb/bin:${PATH}"
-
 # lldb (installed with clang above) is the native debugger used by
 # clickhouse-test's `print_c_stacktraces` to dump server backtraces.
 # Symlink the versioned binary into /usr/bin so callers can run `lldb`
