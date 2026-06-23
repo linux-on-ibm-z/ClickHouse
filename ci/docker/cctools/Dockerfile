@@ -4,7 +4,7 @@
 # It's based on the assumption that we don't care of the cctools version so much
 # It even does not depend on the clickhouse/fasttest in the `docker/images.json`
 ARG FASTTEST_TAG=latest
-ARG CCTOOLS_AVAILABLE=${CCTOOLS_AVAILABLE-"with-cctools"}
+ARG CCTOOLS_AVAILABLE="with-cctools"
 
 FROM clickhouse/fasttest:$FASTTEST_TAG AS builder-with-cctools
 ENV CC=clang-${LLVM_VERSION}

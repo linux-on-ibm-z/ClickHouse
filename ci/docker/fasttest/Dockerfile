@@ -1,6 +1,6 @@
 # docker build -t clickhouse/fasttest .
-ARG CCTOOLS_AVAILABLE=${CCTOOLS_AVAILABLE-"with-cctools"}
-ARG CCTOOLS_TAG=${CCTOOLS_TAG-"859fb360308eb8ac47ad"}
+ARG CCTOOLS_AVAILABLE="with-cctools"
+ARG CCTOOLS_TAG="859fb360308eb8ac47ad"
 
 FROM clickhouse/cctools:${CCTOOLS_TAG} AS cctools
 
