@@ -275,8 +275,13 @@ union XidHelper
 {
     struct
     {
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+        uint32_t upper;
+        uint32_t lower;
+#else
         uint32_t lower;
         uint32_t upper;
+#endif
     } parts;
     int64_t xid;
 };
