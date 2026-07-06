@@ -101,7 +101,9 @@ COPY requirements.txt /
 RUN if [ "${TARGETARCH}" = "s390x" ]; then \
     apt-get update -y \
     && apt-get install libopenblas-dev pkg-config build-essential gfortran \
-      python3.13-wheel python3.13-setuptools cmake ninja-build libssl-dev --yes --no-install-recommends \
+      cmake ninja-build libssl-dev --yes --no-install-recommends \
+    && python3.13 -m pip install wheel \
+    && python3.13 -m pip install setuptools \
     && python3.13 -m pip install meson \
     && python3.13 -m pip install pybind11 \
     && python3.13 -m pip install Cython \
