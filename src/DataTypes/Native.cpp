@@ -9,6 +9,9 @@
 #        undef CR3
 #    endif
 
+#    include <array>
+#    include <bit>
+#    include <cstdint>
 #    include <llvm/IR/IRBuilder.h>
 #    include <DataTypes/DataTypeDateTime64.h>
 #    include <DataTypes/DataTypeNullable.h>
@@ -20,6 +23,26 @@
 
 namespace DB
 {
+
+namespace
+{
+
+/// `llvm::APInt(numBits, ArrayRef<uint64_t>)` takes limbs in least-significant-first
+/// order, but wide_integer storage places the low limb at items[little(i)] where
+/// little(0) == 0 on LE and little(0) == item_count - 1 on BE. On BE we must
+/// reverse the limb array before handing it to APInt.
+template <typename Items>
+static inline auto reorderLimbsForAPInt(const Items & items)
+    -> std::array<std::uint64_t, sizeof(Items) / sizeof(std::uint64_t)>
+{
+    constexpr std::size_t n = sizeof(Items) / sizeof(std::uint64_t);
+    std::array<std::uint64_t, n> reordered{};
+    for (std::size_t i = 0; i < n; ++i)
+        reordered[i] = (std::endian::native == std::endian::little) ? items[i] : items[n - 1 - i];
+    return reordered;
+}
+
+}
 
 namespace ErrorCodes
 {
@@ -401,7 +424,8 @@ llvm::Constant * getColumnNativeValue(llvm::IRBuilderBase & builder, const DataT
                 return llvm::ConstantInt::get(type, static_cast<uint64_t>(element), is_signed_v<T>);
             else
             {
-                llvm::APInt value(type->getIntegerBitWidth(), element.items);
+                auto limbs = reorderLimbsForAPInt(element.items);
+                llvm::APInt value(type->getIntegerBitWidth(), limbs);
                 return llvm::ConstantInt::get(type, value);
             }
         }
@@ -411,7 +435,8 @@ llvm::Constant * getColumnNativeValue(llvm::IRBuilderBase & builder, const DataT
                 return llvm::ConstantInt::get(type, static_cast<uint64_t>(element.value), true);
             else
             {
-                llvm::APInt value(type->getIntegerBitWidth(), element.value.items);
+                auto limbs = reorderLimbsForAPInt(element.value.items);
+                llvm::APInt value(type->getIntegerBitWidth(), limbs);
                 return llvm::ConstantInt::get(type, value);
             }
         }
