@@ -21,6 +21,7 @@
 #include <llvm/TargetParser/SubtargetFeature.h>
 #include <llvm/MC/TargetRegistry.h>
 #include <llvm/Support/DynamicLibrary.h>
+#include <llvm/Support/MathExtras.h>
 #include <llvm/TargetParser/Host.h>
 #include <llvm/Support/TargetSelect.h>
 #include <llvm/Support/SmallVectorMemoryBuffer.h>
@@ -163,11 +164,11 @@ public:
 
     char * allocate(size_t size, size_t alignment)
     {
-        /** First check if in some allocated page blocks there are enough free memory to make allocation.
-          * If there is no such block create it and then allocate from it.
-          */
-
-        for (size_t i = 0; i < page_blocks.size(); ++i)
+        // First check if in some allocated page blocks there are enough free memory to make allocation.
+        // If there is no such block create it and then allocate from it.
+        // Scan from search_start_index so that pre-allocated (externally owned) blocks from
+        // preallocate() are preferred over any stale free fragments in older blocks.
+        for (size_t i = search_start_index; i < page_blocks.size(); ++i)
         {
             char * result = tryAllocateFromPageBlockWithIndex(size, alignment, i);
             if (result)
@@ -176,10 +177,35 @@ public:
 
         allocateNextPageBlock(size);
         size_t allocated_page_index = page_blocks.size() - 1;
+        search_start_index = allocated_page_index;
         char * result = tryAllocateFromPageBlockWithIndex(size, alignment, allocated_page_index);
         chassert(result);
 
         return result;
+    }
+
+    /// Insert an externally-allocated, page-aligned slab as the next block.
+    /// PageArena will sub-allocate from it but will NOT free it on destruction.
+    /// byte_size must be an exact multiple of page_size.
+    void preallocate(void * base, size_t byte_size)
+    {
+        size_t pages_count = byte_size / page_size;
+        page_blocks.emplace_back(base, pages_count, page_size, /*owned=*/false);
+        page_blocks_allocated_size.emplace_back(0);
+        search_start_index = page_blocks.size() - 1;
+    }
+
+    /// Returns true if any block at or after search_start_index has at least
+    /// required_size bytes of raw free space (ignoring alignment padding).
+    bool hasFreeSpace(size_t required_size) const
+    {
+        for (size_t i = search_start_index; i < page_blocks.size(); ++i)
+        {
+            size_t free_bytes = page_blocks[i].blockSize() - page_blocks_allocated_size[i];
+            if (free_bytes >= required_size)
+                return true;
+        }
+        return false;
     }
 
     size_t getAllocatedSize() const { return allocated_size; }
@@ -191,7 +217,10 @@ public:
         protect(PROT_READ | PROT_WRITE);
 
         for (auto & page_block : page_blocks)
-            free(page_block.base());
+        {
+            if (page_block.owned())
+                free(page_block.base());
+        }
     }
 
     void protect(int protection_flags)
@@ -235,8 +264,8 @@ private:
     struct PageBlock
     {
     public:
-        PageBlock(void * pages_base_, size_t pages_size_, size_t page_size_)
-            : pages_base(pages_base_), pages_size(pages_size_), page_size(page_size_)
+        PageBlock(void * pages_base_, size_t pages_size_, size_t page_size_, bool owned_ = true)
+            : pages_base(pages_base_), pages_size(pages_size_), page_size(page_size_), is_owned(owned_)
         {
         }
 
@@ -244,11 +273,13 @@ private:
         size_t pagesSize() const { return pages_size; }
         size_t pageSize() const { return page_size; }
         size_t blockSize() const { return pages_size * page_size; }
+        bool owned() const { return is_owned; }
 
     private:
         void * pages_base;
         size_t pages_size;
         size_t page_size;
+        bool is_owned = true;
     };
 
     std::vector<PageBlock> page_blocks;
@@ -258,6 +289,10 @@ private:
     size_t page_size = 0;
 
     size_t allocated_size = 0;
+
+    /// Index into page_blocks from which allocate() and hasFreeSpace() begin scanning.
+    /// Set by preallocate() so that stale free fragments in older blocks are not reused.
+    size_t search_start_index = 0;
 
     char * tryAllocateFromPageBlockWithIndex(size_t size, size_t alignment, size_t page_block_index)
     {
@@ -300,7 +335,7 @@ private:
                 page_size,
                 ReadableSize(allocate_size));
 
-        page_blocks.emplace_back(buf, pages_to_allocate_size, page_size);
+        page_blocks.emplace_back(buf, pages_to_allocate_size, page_size, /*owned=*/true);
         page_blocks_allocated_size.emplace_back(0);
 
         allocated_size += allocate_size;
@@ -338,6 +373,17 @@ private:
 class JITModuleMemoryManager : public llvm::RTDyldMemoryManager
 {
 public:
+    explicit JITModuleMemoryManager(bool reserve_allocation_)
+        : reserve_allocation(reserve_allocation_)
+    {
+    }
+
+    ~JITModuleMemoryManager() override
+    {
+        if (reserved_slab)
+            free(reserved_slab);
+    }
+
     uint8_t * allocateCodeSection(uintptr_t size, unsigned alignment, unsigned, llvm::StringRef) override
     {
         return reinterpret_cast<uint8_t *>(ex_page_arena.allocate(size, alignment));
@@ -357,6 +403,86 @@ public:
         return true;
     }
 
+    bool needsToReserveAllocationSpace() override
+    {
+        return reserve_allocation;
+    }
+
+    /// Pre-allocate a single contiguous slab that covers all three section arenas
+    /// so that PC-relative branches in JIT code can always reach their targets.
+    /// This is critical on architectures with large address spaces such as s390x
+    /// where independent memory allocations can land far apart.
+    ///
+    /// Algorithm mirrors SectionMemoryManager::reserveAllocationSpace since
+    /// https://github.com/llvm/llvm-project/pull/71968.
+    void reserveAllocationSpace(
+        uintptr_t CodeSize, llvm::Align CodeAlign,
+        uintptr_t RODataSize, llvm::Align RODataAlign,
+        uintptr_t RWDataSize, llvm::Align RWDataAlign) override
+    {
+        /** This code is partially based on the LLVM codebase
+          * The LLVM Project is under the Apache License v2.0 with LLVM Exceptions.
+          */
+
+        if (CodeSize == 0 && RODataSize == 0 && RWDataSize == 0)
+            return;
+
+        // Code alignment needs to be at least the stub alignment.  We don't have
+        // an easy way to get the exact value here, so use 8 — the largest value
+        // observed across all platforms (same floor as the reference impl).
+        constexpr uint64_t stub_align = 8;
+        uint64_t code_align    = std::max(CodeAlign.value(),   stub_align);
+        uint64_t ro_data_align = std::max(RODataAlign.value(), stub_align);
+        uint64_t rw_data_align = std::max(RWDataAlign.value(), stub_align);
+
+        // Compute worst-case byte requirements matching PageArena::allocate
+        // (alignTo(size, align) + align covers the alignment padding std::align
+        // may consume).
+        uint64_t req_code    = llvm::alignTo(CodeSize,   code_align)    + code_align;
+        uint64_t req_ro_data = llvm::alignTo(RODataSize, ro_data_align) + ro_data_align;
+        uint64_t req_rw_data = llvm::alignTo(RWDataSize, rw_data_align) + rw_data_align;
+
+        // If all arenas already have enough contiguous free space, do nothing.
+        if (ex_page_arena.hasFreeSpace(req_code) &&
+            ro_page_arena.hasFreeSpace(req_ro_data) &&
+            rw_page_arena.hasFreeSpace(req_rw_data))
+            return;
+
+        const size_t ps = ex_page_arena.getPageSize();
+
+        // Round each sub-region up to whole pages so sub-regions are page-aligned.
+        uint64_t alloc_code    = CodeSize    > 0 ? llvm::alignTo(req_code,    ps) : 0;
+        uint64_t alloc_ro_data = RODataSize  > 0 ? llvm::alignTo(req_ro_data, ps) : 0;
+        uint64_t alloc_rw_data = RWDataSize  > 0 ? llvm::alignTo(req_rw_data, ps) : 0;
+        uint64_t total         = alloc_code + alloc_ro_data + alloc_rw_data;
+
+        void * slab = nullptr;
+        int res = posix_memalign(&slab, ps, total);
+        if (res != 0)
+            ErrnoException::throwWithErrno(
+                ErrorCodes::CANNOT_ALLOCATE_MEMORY,
+                res,
+                "Cannot allocate JIT reservation slab (posix_memalign) alignment {} size {}",
+                ps,
+                ReadableSize(total));
+
+        reserved_slab = slab;
+
+        auto * ptr = static_cast<uint8_t *>(slab);
+        if (CodeSize > 0)
+        {
+            ex_page_arena.preallocate(ptr, alloc_code);
+            ptr += alloc_code;
+        }
+        if (RODataSize > 0)
+        {
+            ro_page_arena.preallocate(ptr, alloc_ro_data);
+            ptr += alloc_ro_data;
+        }
+        if (RWDataSize > 0)
+            rw_page_arena.preallocate(ptr, alloc_rw_data);
+    }
+
     size_t allocatedSize() const
     {
         size_t data_size = rw_page_arena.getAllocatedSize() + ro_page_arena.getAllocatedSize();
@@ -366,6 +492,9 @@ public:
     }
 
 private:
+    bool reserve_allocation;
+    void * reserved_slab = nullptr;
+
     PageArena rw_page_arena;
     PageArena ro_page_arena;
     PageArena ex_page_arena;
@@ -440,6 +569,13 @@ CHJIT::CHJIT()
     , layout(JITAllocationScope::run([this] { return machine->createDataLayout(); }))
     , compiler(JITAllocationScope::run([this] { return std::make_unique<JITCompiler>(*machine); }))
     , symbol_resolver(std::make_unique<JITSymbolResolver>(layout))
+    // Pre-reserve a contiguous slab on architectures where independent memory allocations
+    // for each JIT section can land too far apart for PC-relative branches to reach.
+#if defined(__s390x__)
+    , reserve_allocation(true)
+#else
+    , reserve_allocation(false)
+#endif
 {
     /// Define common symbols that can be generated during compilation
     /// Necessary for valid linker symbol resolution
@@ -545,7 +681,7 @@ CHJIT::CompiledModule CHJIT::compileModule(std::unique_ptr<llvm::Module> module)
     /// (`Common/malloc.cpp`), so when the linker block below runs inside `JITAllocationScope`, the
     /// reserved executable/data pages also land in the dedicated JIT arena. They are therefore
     /// counted inside `jemalloc.jit_arena.active_bytes` (overlap, not in addition to it).
-    std::unique_ptr<JITModuleMemoryManager> module_memory_manager = std::make_unique<JITModuleMemoryManager>();
+    std::unique_ptr<JITModuleMemoryManager> module_memory_manager = std::make_unique<JITModuleMemoryManager>(reserve_allocation);
 
     CompiledModule compiled_module;
     {

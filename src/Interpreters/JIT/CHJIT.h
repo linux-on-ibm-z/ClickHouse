@@ -110,6 +110,11 @@ private:
     std::atomic<size_t> compiled_code_size = 0;
     mutable std::mutex jit_lock;
 
+    /// Pre-reserve a single contiguous address slab before individual section allocations.
+    /// Required on AArch64 and s390x where independent mmap calls can land too far apart
+    /// for PC-relative branches in JIT code to reach their targets.
+    bool reserve_allocation;
+
 };
 
 /// Drop the static CHJIT instances used for compiled expressions and compiled aggregate functions.
