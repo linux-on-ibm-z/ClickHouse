@@ -51,6 +51,11 @@ public:
 
     ~CHJIT();
 
+    /// Set the process-wide default for the JIT memory reservation slab.
+    /// Must be called before the first CHJIT instance is constructed.
+    /// Controlled by the `jit_reserve_allocation` server setting.
+    static void setReserveAllocation(bool value);
+
     struct CompiledModule
     {
         /// Size of compiled module code in bytes
@@ -111,8 +116,8 @@ private:
     mutable std::mutex jit_lock;
 
     /// Pre-reserve a single contiguous address slab before individual section allocations.
-    /// Required on AArch64 and s390x where independent mmap calls can land too far apart
-    /// for PC-relative branches in JIT code to reach their targets.
+    /// May be needed on some platforms where independent memory allocations can land too 
+    /// far apart for PC-relative branches in JIT code to reach their targets.
     bool reserve_allocation;
 
 };

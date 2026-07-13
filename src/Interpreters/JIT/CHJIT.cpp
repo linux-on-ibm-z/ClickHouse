@@ -70,6 +70,14 @@ public:
 
 }
 
+/// Process-wide default for the JIT memory reservation slab.
+/// Controlled by the `jit_reserve_allocation` server setting via CHJIT::setReserveAllocation.
+static std::atomic<bool> global_jit_reserve_allocation{false};
+
+void CHJIT::setReserveAllocation(bool value)
+{
+    global_jit_reserve_allocation.store(value, std::memory_order_relaxed);
+}
 
 /// These functions will be provided to the linker of JIT code,
 /// so it can call them to work with big integers on platforms without native support.
@@ -187,6 +195,9 @@ public:
     /// Insert an externally-allocated, page-aligned slab as the next block.
     /// PageArena will sub-allocate from it but will NOT free it on destruction.
     /// byte_size must be an exact multiple of page_size.
+    ///
+    /// Note: `allocated_size` is not updated for the reserved allocation here. It
+    /// is updated as page blocks are allocated.
     void preallocate(void * base, size_t byte_size)
     {
         size_t pages_count = byte_size / page_size;
@@ -424,6 +435,9 @@ public:
           * The LLVM Project is under the Apache License v2.0 with LLVM Exceptions.
           */
 
+        // This function is only called once during dynamic_linker.loadObject(...)
+        assert(reserved_slab == nullptr);
+
         if (CodeSize == 0 && RODataSize == 0 && RWDataSize == 0)
             return;
 
@@ -569,13 +583,7 @@ CHJIT::CHJIT()
     , layout(JITAllocationScope::run([this] { return machine->createDataLayout(); }))
     , compiler(JITAllocationScope::run([this] { return std::make_unique<JITCompiler>(*machine); }))
     , symbol_resolver(std::make_unique<JITSymbolResolver>(layout))
-    // Pre-reserve a contiguous slab on architectures where independent memory allocations
-    // for each JIT section can land too far apart for PC-relative branches to reach.
-#if defined(__s390x__)
-    , reserve_allocation(true)
-#else
-    , reserve_allocation(false)
-#endif
+    , reserve_allocation(global_jit_reserve_allocation.load(std::memory_order_relaxed))
 {
     /// Define common symbols that can be generated during compilation
     /// Necessary for valid linker symbol resolution
