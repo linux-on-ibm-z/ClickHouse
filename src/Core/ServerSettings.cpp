@@ -131,6 +131,16 @@ namespace
         return 0.0;
 #else
         return 1.0;
+    }
+
+    /// Default for jit_reserve_allocation: true on s390x (required for PC-relative
+    /// branch reach), false elsewhere.
+    constexpr bool getDefaultJitReserveAllocation()
+    {
+#if defined(__s390x__)
+        return true;
+#else
+        return false;
 #endif
     }
 }
@@ -816,6 +826,7 @@ The cache can also be cleared manually, without changing this limit, with the [`
 This setting can be modified at runtime and will take effect immediately.
 </Note>
 )", 0) \
+    DECLARE(Bool, jit_reserve_allocation, getDefaultJitReserveAllocation(), R"(Pre-reserve a contiguous memory slab before JIT section allocations. Can be used on architectures where independent memory allocations can land too far apart for PC-relative branches in JIT code to reach their targets.)", 0) \
     DECLARE(String, query_condition_cache_policy, DEFAULT_QUERY_CONDITION_CACHE_POLICY, "Cache eviction policy for the query condition cache. Possible values: `LRU`, `SLRU`, `SIEVE`. See [`query_condition_cache_size`](#query_condition_cache_size) for cache capacity and [`query_condition_cache_size_ratio`](#query_condition_cache_size_ratio) for the protected queue size in SLRU policy.", 0) \
     DECLARE(UInt64, query_condition_cache_size, DEFAULT_QUERY_CONDITION_CACHE_MAX_SIZE, R"(
 Maximum size of the query condition cache.
