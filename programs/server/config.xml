@@ -564,6 +564,13 @@
     <!-- Cache size in elements for compiled expressions.-->
     <!-- <compiled_expression_cache_elements_size>10000</compiled_expression_cache_elements_size> -->
 
+    <!-- Pre-reserve a contiguous memory slab before JIT section allocations. Can be used on architectures
+         where independent memory allocations can land too far apart for PC-relative branches in JIT code
+         to reach their targets.
+         False by default on all platforms except s390x.
+    -->
+    <!-- <jit_reserve_allocation>false</jit_reserve_allocation> -->
+
     <!-- Size of the query condition cache in bytes. -->
     <query_condition_cache_size>106700800</query_condition_cache_size>
 

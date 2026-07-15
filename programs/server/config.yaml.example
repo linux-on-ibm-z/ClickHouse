@@ -289,6 +289,12 @@ uncompressed_cache_size: 8589934592
 # Cache size in elements for compiled expressions.
 # compiled_expression_cache_elements_size: 10000
 
+# Pre-reserve a contiguous memory slab before JIT section allocations. Can be used on architectures
+# where independent memory allocations can land too far apart for PC-relative branches in JIT code
+# to reach their targets.
+# False by default on all platforms except s390x.
+# jit_reserve_allocation: false
+
 # Configuration for the query cache
 # query_cache:
 #     max_size_in_bytes: 1073741824
