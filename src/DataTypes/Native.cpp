@@ -9,9 +9,6 @@
 #        undef CR3
 #    endif
 
-#    include <array>
-#    include <bit>
-#    include <cstdint>
 #    include <llvm/IR/IRBuilder.h>
 #    include <DataTypes/DataTypeDateTime64.h>
 #    include <DataTypes/DataTypeNullable.h>
@@ -36,15 +33,15 @@ requires(is_big_int_v<T> && sizeof(typename T::base_type) == sizeof(std::uint64_
 inline auto toApInt(const T & value, unsigned num_bits)
     -> llvm::APInt
 {
-    if constexpr (std::endian::native == std::endian::little) {
+    if constexpr (std::endian::native == std::endian::little)
         return llvm::APInt(num_bits, value.items);
-    }
+
     constexpr std::size_t n = sizeof(T) / sizeof(std::uint64_t);
     std::array<std::uint64_t, n> reordered{};
     for (std::size_t i = 0; i < n; ++i)
         reordered[i] = value.items[n - 1 - i];
 
-    return llvm::APInt(num_bits, value.items);
+    return llvm::APInt(num_bits, reordered);
 }
 
 }
@@ -396,6 +393,37 @@ llvm::Value * nativeCastWithDecimalScale(llvm::IRBuilderBase & b, const ValueWit
     return nativeCastWithDecimalScale(b, value.type, value.value, to_type);
 }
 
+template <typename T>
+requires (is_floating_point<T> || is_integer<T> || is_decimal<T>)
+llvm::Constant * toNumericConstant(llvm::Type * type, const T & element)
+{
+    if constexpr (std::is_floating_point_v<T>)
+    {
+        return llvm::ConstantFP::get(type, static_cast<double>(element));
+    }
+    else if constexpr (is_integer<T>)
+    {
+        if constexpr (std::is_integral_v<T>)
+            return llvm::ConstantInt::get(type, static_cast<uint64_t>(element), is_signed_v<T>);
+        else
+        {
+            auto value = toApInt(element, type->getIntegerBitWidth());
+            return llvm::ConstantInt::get(type, value);
+        }
+    }
+    else if constexpr (is_decimal<T>)
+    {
+        if constexpr (!is_over_big_decimal<T>)
+            return llvm::ConstantInt::get(type, static_cast<uint64_t>(element.value), true);
+        else
+        {
+            auto value = toApInt(element.value, type->getIntegerBitWidth());
+            return llvm::ConstantInt::get(type, value);
+        }
+    }
+    throw Exception(ErrorCodes::LOGICAL_ERROR, "Cannot get llvm numeric constant value for element with type {}", demangle(typeid(T).name()));
+}
+
 llvm::Constant * getColumnNativeValue(llvm::IRBuilderBase & builder, const DataTypePtr & column_type, const IColumn & column, size_t index)
 {
     if (const auto * constant = typeid_cast<const ColumnConst *>(&column))
@@ -418,33 +446,8 @@ llvm::Constant * getColumnNativeValue(llvm::IRBuilderBase & builder, const DataT
     {
         const auto & column_vector_decimal = assert_cast<const ColumnVectorOrDecimal<T> &>(column_);
         const auto & element = column_vector_decimal.getElement(index_);
-
-        if constexpr (std::is_floating_point_v<T>)
-        {
-            return llvm::ConstantFP::get(type, static_cast<double>(element));
-        }
-        else if constexpr (is_integer<T>)
-        {
-            if constexpr (std::is_integral_v<T>)
-                return llvm::ConstantInt::get(type, static_cast<uint64_t>(element), is_signed_v<T>);
-            else
-            {
-                auto value = toApInt(element, type->getIntegerBitWidth());
-                return llvm::ConstantInt::get(type, value);
-            }
-        }
-        else if constexpr (is_decimal<T>)
-        {
-            if constexpr (!is_over_big_decimal<T>)
-                return llvm::ConstantInt::get(type, static_cast<uint64_t>(element.value), true);
-            else
-            {
-                auto value = toApInt(element.value, type->getIntegerBitWidth());
-                return llvm::ConstantInt::get(type, value);
-            }
-        }
+        return toNumericConstant<T>(type, element);
     };
-
 
     #define GET_NUMERIC_CONSTANT(TYPE, DTYPE) \
         if (column_data_type.is##TYPE()) \
@@ -537,6 +540,27 @@ template llvm::Type * toNativeType<Decimal32>(llvm::IRBuilderBase &);
 template llvm::Type * toNativeType<Decimal64>(llvm::IRBuilderBase &);
 template llvm::Type * toNativeType<Decimal128>(llvm::IRBuilderBase &);
 template llvm::Type * toNativeType<Decimal256>(llvm::IRBuilderBase &);
+
+template llvm::Constant * toNumericConstant<Float32>(llvm::Type *, const Float32 &);
+template llvm::Constant * toNumericConstant<Float64>(llvm::Type *, const Float64 &);
+template llvm::Constant * toNumericConstant<Int8>(llvm::Type *, const Int8 &);
+template llvm::Constant * toNumericConstant<Int16>(llvm::Type *, const Int16 &);
+template llvm::Constant * toNumericConstant<Int32>(llvm::Type *, const Int32 &);
+template llvm::Constant * toNumericConstant<Int64>(llvm::Type *, const Int64 &);
+template llvm::Constant * toNumericConstant<Int128>(llvm::Type *, const Int128 &);
+template llvm::Constant * toNumericConstant<Int256>(llvm::Type *, const Int256 &);
+template llvm::Constant * toNumericConstant<UInt8>(llvm::Type *, const UInt8 &);
+template llvm::Constant * toNumericConstant<UInt16>(llvm::Type *, const UInt16 &);
+template llvm::Constant * toNumericConstant<UInt32>(llvm::Type *, const UInt32 &);
+template llvm::Constant * toNumericConstant<UInt64>(llvm::Type *, const UInt64 &);
+template llvm::Constant * toNumericConstant<UInt128>(llvm::Type *, const UInt128 &);
+template llvm::Constant * toNumericConstant<UInt256>(llvm::Type *, const UInt256 &);
+template llvm::Constant * toNumericConstant<DateTime64>(llvm::Type *, const DateTime64 &);
+template llvm::Constant * toNumericConstant<Time64>(llvm::Type *, const Time64 &);
+template llvm::Constant * toNumericConstant<Decimal32>(llvm::Type *, const Decimal32 &);
+template llvm::Constant * toNumericConstant<Decimal64>(llvm::Type *, const Decimal64 &);
+template llvm::Constant * toNumericConstant<Decimal128>(llvm::Type *, const Decimal128 &);
+template llvm::Constant * toNumericConstant<Decimal256>(llvm::Type *, const Decimal256 &);
 
 }
 

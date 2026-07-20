@@ -126,6 +126,11 @@ llvm::Constant * getColumnNativeValue(llvm::IRBuilderBase & builder, const DataT
 /// Get value for specified field as LLVM constant
 llvm::Constant * getNativeValue(llvm::IRBuilderBase & builder, const DataTypePtr & column_type, const Field & field);
 
+/// Convert a numeric element value to an LLVM constant of the given type.
+template <typename T>
+requires (is_floating_point<T> || is_integer<T> || is_decimal<T>)
+llvm::Constant * toNumericConstant(llvm::Type * type, const T & element);
+
 }
 
 #endif

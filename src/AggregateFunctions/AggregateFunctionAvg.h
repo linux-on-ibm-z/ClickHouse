@@ -398,16 +398,7 @@ public:
             auto scale = getDecimalScale(*removeNullable(this->argument_types[0]));
             auto multiplier = DecimalUtils::scaleMultiplier<NativeType<Numerator>>(scale);
 
-            llvm::Value * multiplier_value = nullptr;
-            if constexpr (!is_over_big_decimal<Numerator>)
-            {
-                multiplier_value = llvm::ConstantInt::get(numerator_type, static_cast<uint64_t>(multiplier), true);
-            }
-            else
-            {
-                llvm::APInt value(numerator_type->getIntegerBitWidth(), multiplier.items);
-                multiplier_value = llvm::ConstantInt::get(numerator_type, value);
-            }
+            auto * multiplier_value = toNumericConstant(numerator_type, multiplier);
 
             auto double_multiplier = nativeCast<Numerator>(b, multiplier_value, result_type);
             double_numerator = b.CreateFDiv(double_numerator, double_multiplier);
