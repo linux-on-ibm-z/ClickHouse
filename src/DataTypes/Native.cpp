@@ -31,15 +31,20 @@ namespace
 /// order, but wide_integer storage places the low limb at items[little(i)] where
 /// little(0) == 0 on LE and little(0) == item_count - 1 on BE. On BE we must
 /// reverse the limb array before handing it to APInt.
-template <typename Items>
-static inline auto reorderLimbsForAPInt(const Items & items)
-    -> std::array<std::uint64_t, sizeof(Items) / sizeof(std::uint64_t)>
+template <typename T>
+requires(is_big_int_v<T> && sizeof(typename T::base_type) == sizeof(std::uint64_t))
+inline auto toApInt(const T & value, unsigned num_bits)
+    -> llvm::APInt
 {
-    constexpr std::size_t n = sizeof(Items) / sizeof(std::uint64_t);
+    if constexpr (std::endian::native == std::endian::little) {
+        return llvm::APInt(num_bits, value.items);
+    }
+    constexpr std::size_t n = sizeof(T) / sizeof(std::uint64_t);
     std::array<std::uint64_t, n> reordered{};
     for (std::size_t i = 0; i < n; ++i)
-        reordered[i] = (std::endian::native == std::endian::little) ? items[i] : items[n - 1 - i];
-    return reordered;
+        reordered[i] = value.items[n - 1 - i];
+
+    return llvm::APInt(num_bits, value.items);
 }
 
 }
@@ -424,8 +429,7 @@ llvm::Constant * getColumnNativeValue(llvm::IRBuilderBase & builder, const DataT
                 return llvm::ConstantInt::get(type, static_cast<uint64_t>(element), is_signed_v<T>);
             else
             {
-                auto limbs = reorderLimbsForAPInt(element.items);
-                llvm::APInt value(type->getIntegerBitWidth(), limbs);
+                auto value = toApInt(element, type->getIntegerBitWidth());
                 return llvm::ConstantInt::get(type, value);
             }
         }
@@ -435,8 +439,7 @@ llvm::Constant * getColumnNativeValue(llvm::IRBuilderBase & builder, const DataT
                 return llvm::ConstantInt::get(type, static_cast<uint64_t>(element.value), true);
             else
             {
-                auto limbs = reorderLimbsForAPInt(element.value.items);
-                llvm::APInt value(type->getIntegerBitWidth(), limbs);
+                auto value = toApInt(element.value, type->getIntegerBitWidth());
                 return llvm::ConstantInt::get(type, value);
             }
         }
