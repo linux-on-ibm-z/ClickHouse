@@ -18,6 +18,7 @@
 #include <Columns/ColumnObject.h>
 #include <IO/WriteHelpers.h>
 #include <IO/Libdeflate.h>
+#include <Common/transformEndianness.h>
 #include <Common/WKB.h>
 #include <Common/config_version.h>
 #include <base/arithmeticOverflow.h>
@@ -2652,6 +2653,9 @@ static void flushBloomFilters(FileWriteState & file, WriteBuffer & out)
 
             size_t header_size = serializeThriftStruct(indexes.bloom_filter_header, out);
             size_t data_size = indexes.bloom_filter_data.size() * sizeof(indexes.bloom_filter_data[0]);
+            if constexpr (std::endian::native != std::endian::little)
+                for (UInt32 & word : indexes.bloom_filter_data)
+                    transformEndianness<std::endian::little>(word);
             out.write(indexes.bloom_filter_data.raw_data(), data_size);
 
             column.meta_data.__set_bloom_filter_length(Int32(header_size + data_size));
@@ -2848,7 +2852,7 @@ void writeFileFooter(FileWriteState & file,
     if (footer_size > INT32_MAX)
         throw Exception(ErrorCodes::LIMIT_EXCEEDED, "Parquet file metadata too big: {}", footer_size);
 
-    writeIntBinary(static_cast<int>(footer_size), out);
+    writeBinaryLittleEndian(static_cast<Int32>(footer_size), out);
     out.write("PAR1", 4);
     file.offset += footer_size + 8;
 }
