@@ -20,6 +20,7 @@
 #include <Columns/ColumnObject.h>
 #include <IO/WriteHelpers.h>
 #include <IO/Libdeflate.h>
+#include <Common/transformEndianness.h>
 #include <Common/WKB.h>
 #include <Common/config_version.h>
 #include <base/arithmeticOverflow.h>
@@ -77,8 +78,13 @@ struct StatisticsNumeric
         s.__isset.min_value = s.__isset.max_value = true;
         s.min_value.resize(sizeof(T));
         s.max_value.resize(sizeof(T));
-        memcpy(s.min_value.data(), &min, sizeof(T));
-        memcpy(s.max_value.data(), &max, sizeof(T));
+        // Parquet spec requires little-endian for all numeric statistics.
+        T min_le = min;
+        T max_le = max;
+        transformEndianness<std::endian::little>(min_le);
+        transformEndianness<std::endian::little>(max_le);
+        memcpy(s.min_value.data(), &min_le, sizeof(T));
+        memcpy(s.max_value.data(), &max_le, sizeof(T));
         s.__set_is_min_value_exact(true);
         s.__set_is_max_value_exact(true);
 
@@ -670,7 +676,8 @@ struct ConverterDecimal
         memcpy(data_buf.data(), reinterpret_cast<const char *>(column.getData().data() + offset), count * sizeof(T));
         for (size_t i = 0; i < count; ++i)
         {
-            std::reverse(data_buf.data() + i * sizeof(T), data_buf.data() + (i + 1) * sizeof(T));
+            if constexpr (std::endian::native == std::endian::little)
+                std::reverse(data_buf.data() + i * sizeof(T), data_buf.data() + (i + 1) * sizeof(T));
             ptr_buf[i].ptr = data_buf.data() + i * sizeof(T);
         }
         return ptr_buf.data();
@@ -786,7 +793,9 @@ void encodeRepDefLevelsRLE(const UInt8 * data, size_t size, UInt8 max_level, POD
     encoder.Flush();
     Int32 len = encoder.len();
 
-    memcpy(out.data() + offset, &len, prefix_size);
+    Int32 len_le = len;
+    transformEndianness<std::endian::little>(len_le);
+    memcpy(out.data() + offset, &len_le, prefix_size);
     out.resize(offset + prefix_size + len);
 }
 
@@ -1477,6 +1486,9 @@ static void flushBloomFilters(FileWriteState & file, WriteBuffer & out)
 
             size_t header_size = serializeThriftStruct(indexes.bloom_filter_header, out);
             size_t data_size = indexes.bloom_filter_data.size() * sizeof(indexes.bloom_filter_data[0]);
+            if constexpr (std::endian::native != std::endian::little)
+                for (UInt32 & word : indexes.bloom_filter_data)
+                    transformEndianness<std::endian::little>(word);
             out.write(indexes.bloom_filter_data.raw_data(), data_size);
 
             column.meta_data.__set_bloom_filter_length(Int32(header_size + data_size));
@@ -1659,7 +1671,7 @@ void writeFileFooter(FileWriteState & file,
     if (footer_size > INT32_MAX)
         throw Exception(ErrorCodes::LIMIT_EXCEEDED, "Parquet file metadata too big: {}", footer_size);
 
-    writeIntBinary(static_cast<int>(footer_size), out);
+    writeBinaryLittleEndian(static_cast<Int32>(footer_size), out);
     out.write("PAR1", 4);
     file.offset += footer_size + 8;
 }
