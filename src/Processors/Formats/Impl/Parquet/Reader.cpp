@@ -237,8 +237,7 @@ parq::FileMetaData Reader::readFileMetaData(Prefetcher & prefetcher)
     if (memcmp(buf.data() + initial_read_size - 4, "PAR1", 4) != 0)
         throw Exception(ErrorCodes::INCORRECT_DATA, "Not a Parquet file (wrong magic bytes at the end of file)");
 
-    int32_t metadata_size_i32 = 0;
-    memcpy(&metadata_size_i32, buf.data() + initial_read_size - 8, 4);
+    int32_t metadata_size_i32 = unalignedLoadLittleEndian<int32_t>(buf.data() + initial_read_size - 8);
     if (metadata_size_i32 <= 0 || size_t(metadata_size_i32) + 8 > file_size)
         throw Exception(ErrorCodes::INCORRECT_DATA, "Bad metadata size in parquet file: {} bytes", metadata_size_i32);
 
@@ -1563,7 +1562,7 @@ bool Reader::BloomFilterLookup::findAnyHash(const std::vector<uint64_t> & hashes
         for (size_t i = 0; i < 8; ++i)
         {
             size_t bit_idx = UInt32(UInt32(h) * salt[i]) >> 27;
-            UInt32 word = unalignedLoad<UInt32>(data.data() + i * 4);
+            UInt32 word = unalignedLoadLittleEndian<UInt32>(data.data() + i * 4);
             if (!(word & (1u << bit_idx)))
             {
                 miss = true;
@@ -2762,7 +2761,7 @@ bool Reader::initializeDataPage(const char * & data_ptr, const char * data_end, 
         {
             /// Rep/def levels and values are compressed together. Decompress and split.
             /// Format (lengths are 4 bytes):
-            /// <def length> <def> [<rep length> <rep>] <values>
+            /// [<rep length> <rep>] <def length> <def> <values>
             decompressPageIfCompressed(page);
 
             UInt32 n = 0;
@@ -2770,7 +2769,7 @@ bool Reader::initializeDataPage(const char * & data_ptr, const char * data_end, 
             {
                 if (page.data.size() < 4)
                     throw Exception(ErrorCodes::INCORRECT_DATA, "Decompressed data is too short (rep size)");
-                memcpy(&n, page.data.data(), 4);
+                n = unalignedLoadLittleEndian<UInt32>(page.data.data());
                 if (n > page.data.size() - 4)
                     throw Exception(ErrorCodes::INCORRECT_DATA, "Decompressed data is too short (rep)");
                 encoded_rep = page.data.data() + 4;
@@ -2780,7 +2779,7 @@ bool Reader::initializeDataPage(const char * & data_ptr, const char * data_end, 
 
             if (page.data.size() < 4)
                 throw Exception(ErrorCodes::INCORRECT_DATA, "Decompressed data is too short (def size)");
-            memcpy(&n, page.data.data(), 4);
+            n = unalignedLoadLittleEndian<UInt32>(page.data.data());
             if (n > page.data.size() - 4)
                 throw Exception(ErrorCodes::INCORRECT_DATA, "Decompressed data is too short (def)");
             encoded_def = page.data.data() + 4;

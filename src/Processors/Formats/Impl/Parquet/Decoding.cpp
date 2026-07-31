@@ -1,3 +1,4 @@
+#include <bit>
 #include <Processors/Formats/Impl/Parquet/Decoding.h>
 
 #include <base/arithmeticOverflow.h>
@@ -5,6 +6,7 @@
 #include <Common/FloatUtils.h>
 #include <Interpreters/convertFieldToType.h>
 #include <Functions/DateTimeTransforms.h>
+#include <Common/transformEndianness.h>
 
 #include <arrow/util/bit_stream_utils_internal.h>
 #include <arrow/util/byte_stream_split_internal.h>
@@ -58,8 +60,7 @@ struct BitPackedRLEDecoder : public PageDecoder
             /// RLE-encoded BOOLEANs have 4-byte length prepended, for some reason. It doesn't add
             /// any useful information, but let's validate it just in case.
             requireRemainingBytes(4);
-            UInt32 len = 0;
-            memcpy(&len, data, 4);
+            UInt32 len = unalignedLoadLittleEndian<UInt32>(data);
             data += 4;
             if (ssize_t(len) > end - data)
                 throw Exception(ErrorCodes::INCORRECT_DATA, "Invalid length of RLE-encoded page: {} > {}", len, end - data);
@@ -110,7 +111,7 @@ struct BitPackedRLEDecoder : public PageDecoder
             run_length = len >> 1;
             requireRemainingBytes(byte_width);
 
-            memcpy(&val, data, sizeof(T));
+            val = unalignedLoadLittleEndian<T>(data);
             val &= value_mask;
 
             if (val >= limit)
@@ -162,8 +163,7 @@ struct BitPackedRLEDecoder : public PageDecoder
                 {
                     for (size_t i = 0; i < n; ++i)
                     {
-                        size_t x = 0;
-                        memcpy(&x, data + (bit_idx >> 3), 8);
+                        size_t x = unalignedLoadLittleEndian<size_t>(data + (bit_idx >> 3));
                         x = (x >> (bit_idx & 7)) & value_mask;
 
                         if (x >= limit)
@@ -331,8 +331,7 @@ struct PlainStringDecoder : public PageDecoder
     {
         for (size_t i = 0; i < num_values; ++i)
         {
-            UInt32 x = 0;
-            memcpy(&x, data, 4); /// omitting range check because input is padded
+            UInt32 x = unalignedLoadLittleEndian<UInt32>(data); /// omitting range check because input is padded
             size_t len = 4 + size_t(x);
             requireRemainingBytes(len);
             data += len;
@@ -353,8 +352,7 @@ struct PlainStringDecoder : public PageDecoder
             col_str.reserve(col_str.size() + to_reserve);
             for (size_t i = 0; i < num_values; ++i)
             {
-                UInt32 x = 0;
-                memcpy(&x, data, 4); /// omitting range check because input is padded
+                UInt32 x = unalignedLoadLittleEndian<UInt32>(data); /// omitting range check because input is padded
                 size_t len = 4 + size_t(x);
                 requireRemainingBytes(len);
                 if (!filter || filter[filter_offset + i])
@@ -375,8 +373,7 @@ struct PlainStringDecoder : public PageDecoder
                 {
                     for (size_t i = 0; i < num_values; ++i)
                     {
-                        UInt32 x = 0;
-                        memcpy(&x, data, 4);
+                        UInt32 x = unalignedLoadLittleEndian<UInt32>(data);
                         data += 4 + size_t(x);
                     }
                     return;
@@ -386,8 +383,7 @@ struct PlainStringDecoder : public PageDecoder
                 size_t offset = 0;
                 for (size_t i = 0; i < num_values; ++i)
                 {
-                    UInt32 x = 0;
-                    memcpy(&x, data, 4);
+                    UInt32 x = unalignedLoadLittleEndian<UInt32>(data);
                     size_t len = 4 + size_t(x);
                     requireRemainingBytes(len);
                     if (filter[filter_offset + i])
@@ -408,8 +404,7 @@ struct PlainStringDecoder : public PageDecoder
             size_t offset = 0;
             for (size_t i = 0; i < num_values; ++i)
             {
-                UInt32 x = 0;
-                memcpy(&x, data, 4); /// omitting range check because input is padded
+                UInt32 x = unalignedLoadLittleEndian<UInt32>(data); /// omitting range check because input is padded
                 size_t len = 4 + size_t(x);
                 requireRemainingBytes(len);
                 offset += len;
@@ -1006,12 +1001,46 @@ struct ByteStreamSplitDecoder : public PageDecoder
 
         requireRemainingBytes(num_values);
 
-        /// De-interleave the byte streams back into values. Arrow has SIMD (NEON/AVX2/SSE4.2) implementations of
-        /// exactly this transpose, gated behind the ARROW_HAVE_* defines enabled in contrib/arrow-cmake.
-        arrow::util::internal::ByteStreamSplitDecode(
-            reinterpret_cast<const uint8_t *>(data), static_cast<int>(num_streams),
-            static_cast<int64_t>(num_values), static_cast<int64_t>(stream_size),
-            reinterpret_cast<uint8_t *>(to));
+        if constexpr (std::endian::native == std::endian::little)
+        {
+            /// De-interleave the byte streams back into values. Arrow has SIMD (NEON/AVX2/SSE4.2) implementations of
+            /// exactly this transpose, gated behind the ARROW_HAVE_* defines enabled in contrib/arrow-cmake.
+            arrow::util::internal::ByteStreamSplitDecode(
+                reinterpret_cast<const uint8_t *>(data), static_cast<int>(num_streams),
+                static_cast<int64_t>(num_values), static_cast<int64_t>(stream_size),
+                reinterpret_cast<uint8_t *>(to));
+        }
+        else
+        {
+            /// arrow::util::internal::ByteStreamSplitDecode is currently broken on big endian platforms
+            size_t i = 0;
+            while (i < num_values)
+            {
+                if (num_values - i >= 8)
+                {
+                    /// Slightly faster code path that reads 8 bytes at once.
+                    for (size_t stream = 0; stream < num_streams; ++stream)
+                    {
+                        UInt64 x = unalignedLoad<UInt64>(&data[i + stream * stream_size]);
+                        to[(i + 0) * num_streams + stream] = char(UInt8(x >> 56));
+                        to[(i + 1) * num_streams + stream] = char(UInt8(x >> 48));
+                        to[(i + 2) * num_streams + stream] = char(UInt8(x >> 40));
+                        to[(i + 3) * num_streams + stream] = char(UInt8(x >> 32));
+                        to[(i + 4) * num_streams + stream] = char(UInt8(x >> 24));
+                        to[(i + 5) * num_streams + stream] = char(UInt8(x >> 16));
+                        to[(i + 6) * num_streams + stream] = char(UInt8(x >> 8));
+                        to[(i + 7) * num_streams + stream] = char(UInt8(x >> 0));
+                    }
+                    i += 8;
+                }
+                else
+                {
+                    for (size_t stream = 0; stream < num_streams; ++stream)
+                        to[i * num_streams + stream] = data[i + stream * stream_size];
+                    i += 1;
+                }
+            }
+        }
         data += num_values;
 
         if (!direct)
@@ -1223,8 +1252,7 @@ void Dictionary::decode(parq::Encoding::type encoding, const PageDecoderInfo & i
         const char * end = data.data() + data.size();
         for (size_t i = 0; i < num_values; ++i)
         {
-            UInt32 x = 0;
-            memcpy(&x, ptr, 4); /// omitting range check because input is padded
+            UInt32 x = unalignedLoadLittleEndian<UInt32>(ptr); /// omitting range check because input is padded
             size_t len = 4 + size_t(x);
             if (len > size_t(end - ptr))
                 throw Exception(ErrorCodes::INCORRECT_DATA, "Encoded string is out of bounds");
@@ -1411,6 +1439,9 @@ void Dictionary::index(const ColumnUInt32 & indexes_col, IColumn & out)
     }
 }
 
+/// Bulk-copies raw bytes into a column. The caller must ensure `data` is already in the host's
+/// native byte order (i.e. callers for numeric types must not use this on big-endian hosts —
+/// use unalignedLoadLittleEndian instead). Correct callers: FixedStringConverter (opaque bytes).
 void memcpyIntoColumn(const char * data, size_t num_values, size_t value_size, IColumn & col)
 {
     auto to = col.insertRawUninitialized(num_values);
@@ -1424,9 +1455,7 @@ static void convertIntColumnImpl(const char * from_bytes, char * to_bytes, size_
     To * to = reinterpret_cast<To *>(to_bytes);
     for (size_t i = 0; i < num_values; ++i)
     {
-        /// (Can't reinterpret_cast<const From *>(from_bytes) because pointer may be unaligned).
-        From x;
-        memcpy(&x, from_bytes + i * sizeof(From), sizeof(From));
+        From x = unalignedLoadLittleEndian<From>(from_bytes + i * sizeof(From));
         to[i] = static_cast<To>(x);
     }
 }
@@ -1479,7 +1508,27 @@ void IntConverter::convertColumn(std::span<const char> data, size_t num_values, 
     }
     else
     {
-        memcpyIntoColumn(data.data(), num_values, input_size, col);
+        if constexpr (std::endian::native == std::endian::little)
+        {
+            memcpyIntoColumn(data.data(), num_values, input_size, col);
+        }
+        else
+        {
+            auto to = col.insertRawUninitialized(num_values);
+            if (input_size == 4)
+            {
+                UInt32 * dst = reinterpret_cast<UInt32 *>(to.data());
+                for (size_t i = 0; i < num_values; ++i)
+                    dst[i] = unalignedLoadLittleEndian<UInt32>(data.data() + i * 4);
+            }
+            else
+            {
+                chassert(input_size == 8);
+                UInt64 * dst = reinterpret_cast<UInt64 *>(to.data());
+                for (size_t i = 0; i < num_values; ++i)
+                    dst[i] = unalignedLoadLittleEndian<UInt64>(data.data() + i * 8);
+            }
+        }
     }
 
     if (date_overflow_behavior != FormatSettings::DateTimeOverflowBehavior::Ignore)
@@ -1510,10 +1559,10 @@ std::optional<Field> IntConverter::convertField(std::span<const char> data, bool
     UInt64 val = 0;
     switch (input_size)
     {
-        case 1: val = unalignedLoad<UInt8>(data.data()); break;
-        case 2: val = unalignedLoad<UInt16>(data.data()); break;
-        case 4: val = unalignedLoad<UInt32>(data.data()); break;
-        case 8: val = unalignedLoad<UInt64>(data.data()); break;
+        case 1: val = unalignedLoadLittleEndian<UInt8>(data.data()); break;
+        case 2: val = unalignedLoadLittleEndian<UInt16>(data.data()); break;
+        case 4: val = unalignedLoadLittleEndian<UInt32>(data.data()); break;
+        case 8: val = unalignedLoadLittleEndian<UInt64>(data.data()); break;
         default: chassert(false);
     }
 
@@ -1571,13 +1620,24 @@ std::optional<Field> IntConverter::convertField(std::span<const char> data, bool
 }
 
 template<typename T>
+void FloatConverter<T>::convertColumn(std::span<const char> data, size_t num_values, IColumn & col) const
+{
+    auto span = col.insertRawUninitialized(num_values);
+    if constexpr (std::endian::native == std::endian::little)
+        memcpy(span.data(), data.data(), span.size());
+    else
+        for (size_t i = 0; i < num_values; ++i)
+            unalignedStore<T>(span.data() + i * sizeof(T),
+                unalignedLoadLittleEndian<T>(data.data() + i * sizeof(T)));
+}
+
+template<typename T>
 std::optional<Field> FloatConverter<T>::convertField(std::span<const char> data, bool /*is_max*/) const
 {
     if (data.size() != input_size)
         throw Exception(ErrorCodes::CANNOT_PARSE_NUMBER, "Unexpected value size in float statistics: {} != {}", data.size(), input_size);
 
-    T x;
-    memcpy(&x, data.data(), sizeof(x));
+    T x = unalignedLoadLittleEndian<T>(data.data());
 
     /// parquet.thrift says:
     /// (*) Because the sorting order is not specified properly for floating
@@ -1606,8 +1666,7 @@ void Float16Converter::convertColumn(std::span<const char> data, size_t num_valu
     out_data.reserve(out_data.size() + num_values);
     for (size_t i = 0; i < num_values; ++i)
     {
-        uint16_t x = 0;
-        memcpy(&x, data.data() + i * 2, 2);
+        uint16_t x = unalignedLoadLittleEndian<uint16_t>(data.data() + i * 2);
         out_data.push_back(convertFloat16ToFloat32(x));
     }
 }
@@ -1721,7 +1780,10 @@ BigEndianHelper<T>::BigEndianHelper(size_t input_size)
 {
     chassert(sizeof(T) >= input_size);
     value_offset = sizeof(T) - input_size;
-    value_mask = (~T(0)) << (8 * value_offset);
+    if constexpr (std::endian::native == std::endian::little)
+        value_mask = (~T(0)) << (8 * value_offset);
+    else
+        value_mask = (~T(0)) >> (8 * value_offset);
 
     if (value_offset != 0)
     {
@@ -1735,8 +1797,8 @@ void BigEndianHelper<T>::fixupValue(T & x) const
 {
     x &= value_mask; // mask off the garbage bytes that we've read out of bounds
 
-    /// Convert to little-endian.
-    x = byteswap(x);
+    /// Convert from big-endian (Parquet) to native host byte order.
+    transformEndianness<std::endian::native, std::endian::big>(x);
 
     /// Sign-extend.
     if (x & sign_mask)
@@ -1965,8 +2027,8 @@ void Int96Converter::convertColumn(std::span<const char> data, size_t num_values
     Int64 * to = reinterpret_cast<Int64 *>(to_span.data());
     for (size_t i = 0; i < num_values; ++i)
     {
-        const Int64 nanos = unalignedLoad<Int64>(data.data() + i * 12);
-        const Int64 julian_day = Int64(unalignedLoad<Int32>(data.data() + i * 12 + 8));
+        const Int64 nanos = unalignedLoadLittleEndian<Int64>(data.data() + i * 12);
+        const Int64 julian_day = Int64(unalignedLoadLittleEndian<Int32>(data.data() + i * 12 + 8));
 
         const Int64 day_nanos = 86400'000'000'000;
         /// (Allow negative values just in case. Maybe someone uses them to correct for the fact

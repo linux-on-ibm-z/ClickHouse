@@ -3,6 +3,7 @@
 #include <Processors/Formats/Impl/ArrowGeoTypes.h>
 #include <Processors/Formats/Impl/Parquet/ReadCommon.h>
 #include <Processors/Formats/Impl/Parquet/ThriftUtil.h>
+#include <base/unaligned.h>
 
 namespace DB::ErrorCodes
 {
@@ -233,6 +234,8 @@ struct IntConverter : public FixedSizeConverter
 
     bool isTrivial() const override
     {
+        if constexpr (std::endian::native != std::endian::little)
+            return false;
         return !output_size.has_value() && date_overflow_behavior == FormatSettings::DateTimeOverflowBehavior::Ignore;
     }
 
@@ -248,8 +251,9 @@ struct FloatConverter : public FixedSizeConverter
 {
     FloatConverter() { input_size = sizeof(T); }
 
-    bool isTrivial() const override { return true; }
+    bool isTrivial() const override { return std::endian::native == std::endian::little; }
 
+    void convertColumn(std::span<const char> data, size_t num_values, IColumn & col) const override;
     std::optional<Field> convertField(std::span<const char> data, bool /*is_max*/) const override;
 };
 
