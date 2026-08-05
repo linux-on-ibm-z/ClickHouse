@@ -1515,7 +1515,18 @@ void IntConverter::convertColumn(std::span<const char> data, size_t num_values, 
         else
         {
             auto to = col.insertRawUninitialized(num_values);
-            if (input_size == 4)
+            if (input_size == 1)
+            {
+                /// Single-byte values (e.g. BOOLEAN) need no byte-swapping.
+                memcpy(to.data(), data.data(), num_values);
+            }
+            else if (input_size == 2)
+            {
+                UInt16 * dst = reinterpret_cast<UInt16 *>(to.data());
+                for (size_t i = 0; i < num_values; ++i)
+                    dst[i] = unalignedLoadLittleEndian<UInt16>(data.data() + i * 2);
+            }
+            else if (input_size == 4)
             {
                 UInt32 * dst = reinterpret_cast<UInt32 *>(to.data());
                 for (size_t i = 0; i < num_values; ++i)
