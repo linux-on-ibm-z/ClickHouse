@@ -664,6 +664,8 @@ endfunction (add_native_target)
 
 add_subdirectory (contrib EXCLUDE_FROM_ALL)
 
+include (cmake/apply-contrib-patches.cmake)
+
 # We can only include XRay flags and defines once we know that we're building LLVM
 if (ENABLE_XRAY)
     include (cmake/xray_instrumentation.cmake)
