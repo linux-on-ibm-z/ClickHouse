@@ -6,6 +6,10 @@ FROM clickhouse/cctools:${CCTOOLS_TAG} AS cctools
 
 FROM ubuntu:22.04 AS odbc-download
 
+# We need ca-certificates first to be able to update all repos. This is why it's run twice
+RUN apt-get update \
+    && apt-get install ca-certificates --yes --no-install-recommends --verbose-versions
+
 RUN apt-get update \
     && apt-get install \
         wget \

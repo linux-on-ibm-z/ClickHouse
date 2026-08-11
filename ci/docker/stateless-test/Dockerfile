@@ -15,6 +15,12 @@ ARG MINIO_SERVER_VERSION=2025-06-13T11-33-47Z
 ARG MINIO_CLIENT_VERSION=2025-05-21T01-59-54Z
 ARG TARGETARCH
 
+RUN apt-get update -y \
+    && apt-get install --yes --no-install-recommends \
+        curl ca-certificates \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /var/cache/debconf /tmp/*
+
 # Download Minio-related binaries.
 # dl.min.io throttles under concurrent multi-arch image builds, so fetch with
 # --fail (never write an error body as a "binary") and retry with backoff on
