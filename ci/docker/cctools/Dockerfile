@@ -144,9 +144,26 @@ activate = 1
 
 EOF
 
+#
+# cmake
+#
+# The KitWare cmake apt repos only have packages for amd64 and arm64.
+# This build depends on libssl.
+RUN wget https://github.com/Kitware/CMake/releases/download/v3.31.10/cmake-3.31.10.tar.gz \
+    && tar xf cmake-3.31.10.tar.gz \
+    && cd cmake-3.31.10/ \
+    && mkdir build \
+    && cmake -B build -G Ninja \
+    && cd build/ \
+    && ninja \
+    && mkdir -p /opt/cmake \
+    && chmod 777 /opt/cmake \
+    && cmake --install . --prefix /opt/cmake
+
 FROM scratch
 COPY --from=builder /cctools /cctools
 COPY --from=builder /opt/gdb /opt/gdb
 COPY --from=builder /opt/openssl-fips /opt/openssl-fips
+COPY --from=builder /opt/cmake /opt/cmake
 
 # NOTE: this file should be kept in sync with other docker images, since they use COPY from this image
