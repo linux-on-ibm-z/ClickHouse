@@ -110,6 +110,7 @@ namespace
         return 0.0;
 #else
         return 1.0;
+#endif
     }
 
     /// Default for jit_reserve_allocation: true on s390x (required for PC-relative
