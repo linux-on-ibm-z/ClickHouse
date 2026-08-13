@@ -170,16 +170,16 @@ RUN if [ "${TARGETARCH}" = "s390x" ]; then \
     apt-get update \
     && apt-get install libopenblas-dev pkg-config build-essential python3-dev gfortran \
       python3-pkg-resources python3-setuptools --yes --no-install-recommends \
-    && pip3 install meson \
-    && pip3 install pybind11 \
-    && pip3 install Cython \
-    && pip3 install pythran \
+    && pip3 install --break-system-packages --no-cache-dir meson \
+    && pip3 install --break-system-packages --no-cache-dir pybind11 \
+    && pip3 install --break-system-packages --no-cache-dir Cython \
+    && pip3 install --break-system-packages --no-cache-dir pythran \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/debconf /tmp/*; \
   fi \
   && pip3 install --break-system-packages --no-cache-dir -r /requirements.txt
 RUN if [ "${TARGETARCH}" = "s390x" ]; then \
-    pip3 install --upgrade awscli; \
+    pip3 install --upgrade --break-system-packages --no-cache-dir awscli; \
   else \
     curl "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o "awscliv2.zip" \
     && unzip -q awscliv2.zip \
