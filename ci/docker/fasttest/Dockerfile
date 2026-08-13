@@ -179,7 +179,7 @@ RUN if [ "${TARGETARCH}" = "s390x" ]; then \
   fi \
   && pip3 install --break-system-packages --no-cache-dir -r /requirements.txt
 RUN if [ "${TARGETARCH}" = "s390x" ]; then \
-    pip3 install --upgrade awscli;
+    pip3 install --upgrade awscli; \
   else \
     curl "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o "awscliv2.zip" \
     && unzip -q awscliv2.zip \
