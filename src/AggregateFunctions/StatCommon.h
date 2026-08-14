@@ -11,6 +11,7 @@
 #include <Common/iota.h>
 
 #include <IO/ReadHelpers.h>
+#include <IO/WriteHelpers.h>
 #include <Common/VectorWithMemoryTracking.h>
 
 
