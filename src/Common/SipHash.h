@@ -237,7 +237,9 @@ inline String getSipHash128AsHexString(const UInt128 & hash)
 {
     String result;
 
-    const auto * hash_data = reinterpret_cast<const UInt8 *>(&hash);
+    // reinterpret_cast<const UInt8 *>(&hash) must not be used here because it is
+    // undefined behavior and is broken on at least s390x with '-O2' and higher
+    const auto * hash_data = reinterpret_cast<const uint8_t *>(&hash);
     const auto hash_size = sizeof(hash);
     result.resize(hash_size * 2);
     for (size_t i = 0; i < hash_size; ++i)
