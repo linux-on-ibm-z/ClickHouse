@@ -219,8 +219,7 @@ inline std::array<char, 16> getSipHash128AsArray(SipHash & sip_hash)
     std::array<char, 16> arr{};
     UInt128 hash = sip_hash.get128();
 
-    if constexpr (std::endian::native == std::endian::big)
-        DB::transformEndianness<std::endian::little>(hash);
+    DB::transformEndianness<std::endian::little>(hash);
 
     *reinterpret_cast<UInt128*>(arr.data()) = hash;
     return arr;
@@ -244,7 +243,10 @@ inline String getSipHash128AsHexString(const UInt128 & hash)
     result.resize(hash_size * 2);
     for (size_t i = 0; i < hash_size; ++i)
     {
-        writeHexByteLowercase(hash_data[i], &result[2 * i]);
+        if constexpr (std::endian::native == std::endian::big)
+            writeHexByteLowercase(hash_data[hash_size - 1 - i], &result[2 * i]);
+        else
+            writeHexByteLowercase(hash_data[i], &result[2 * i]);
     }
     return result;
 }
