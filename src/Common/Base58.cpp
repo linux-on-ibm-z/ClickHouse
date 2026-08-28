@@ -1,5 +1,6 @@
 #include <Common/Base58.h>
 
+#include <bit>
 #include <cstring>
 #include <optional>
 
@@ -102,7 +103,10 @@ constexpr uint32_t dec_table_64[18][16] = {
 
 inline uint32_t b58_bswap32(uint32_t x)
 {
-    return __builtin_bswap32(x);
+    if constexpr (std::endian::native == std::endian::little)
+        return __builtin_bswap32(x);
+    else
+        return x;
 }
 
 inline uint32_t b58_load_u32_be(const uint8_t * p)
