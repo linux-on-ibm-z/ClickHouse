@@ -456,7 +456,8 @@ private:
         if constexpr (std::endian::native == std::endian::little)
             memcpy(data_to.data(), src.getRawData().data(), data_to.size());
         else
-            reverseMemcpy(data_to.data(), src.getRawData().data(), data_to.size());
+            for (size_t i = 0; i < input_rows_count; ++i)
+                reverseMemcpy(data_to.data() + i * n, src.getRawData().data() + i * n, n);
     }
 
     static void NO_INLINE executeToString(const IColumn & src, ColumnString & dst, size_t input_rows_count)
