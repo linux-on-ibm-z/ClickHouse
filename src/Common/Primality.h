@@ -135,8 +135,8 @@ auto toBoostInteger(const T & num)
     static_assert(std::is_same_v<T, UInt128> || std::is_same_v<T, UInt256>);
     using BoostUInt = std::conditional_t<std::is_same_v<T, UInt128>, boost::multiprecision::uint128_t, boost::multiprecision::uint256_t>;
     BoostUInt result = 0;
-    for (size_t i = 0; i < std::size(num.items); ++i)
-        result |= BoostUInt(num.items[i]) << (64 * i);
+    for (unsigned i = 0; i < std::size(num.items); ++i)
+        result |= BoostUInt(num.items[T::_impl::little(i)]) << (64 * i);
     return result;
 }
 
@@ -150,9 +150,9 @@ UInt64 hornerMod(const T & num, UInt64 modulus)
 {
     static_assert(std::is_same_v<T, UInt128> || std::is_same_v<T, UInt256>);
     UInt64 remainder = 0;
-    for (size_t i = std::size(num.items); i-- > 0;)
+    for (unsigned i = std::size(num.items); i-- > 0;)
     {
-        __uint128_t accumulator = (static_cast<__uint128_t>(remainder) << 64) | num.items[i];
+        __uint128_t accumulator = (static_cast<__uint128_t>(remainder) << 64) | num.items[T::_impl::little(i)];
         remainder = static_cast<UInt64>(accumulator % modulus);
     }
     return remainder;
@@ -220,10 +220,10 @@ UInt8 isProbablePrime(const T & num, unsigned rounds, const std::function<void()
 {
     /// If the wide value fits in UInt64, use the deterministic UInt64 path.
     if (num <= std::numeric_limits<UInt64>::max())
-        return isPrime<UInt64>(static_cast<UInt64>(num.items[0]));
+        return isPrime<UInt64>(static_cast<UInt64>(num.items[T::_impl::little(0)]));
 
     /// Reject even numbers cheaply before the expensive upcoming operations.
-    if ((num.items[0] & 1) == 0)
+    if ((num.items[T::_impl::little(0)] & 1) == 0)
         return 0;
 
     /// This should cover many composite candidates cheaply before the more expensive Miller-Rabin rounds.
