@@ -1,6 +1,7 @@
 #pragma once
 
 #include <AggregateFunctions/CrossTab.h>
+#include <IO/WriteHelpers.h>
 
 #include <cmath>
 
@@ -155,7 +156,7 @@ struct TheilsUWindowData : CrossTabCountsState
     /// Keep the same serialization format as CrossTabAggregateData
     void serialize(WriteBuffer & buf) const
     {
-        writeBinary(count, buf);
+        writeBinaryLittleEndian(count, buf);
         count_a.write(buf);
         count_b.write(buf);
         count_ab.write(buf);
