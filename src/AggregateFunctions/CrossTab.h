@@ -541,7 +541,7 @@ struct CrossTabPhiSquaredWindowData
     /// Keep the same serialization format as CrossTabAggregateData
     void serialize(WriteBuffer & buf) const
     {
-        writeBinary(count, buf);
+        writeBinaryLittleEndian(count, buf);
 
         HashMapWithStackMemory<UInt64, UInt64, TrivialHash, 4> count_a;
         for (size_t i = 0; i < a_hash_by_index.size(); ++i)
@@ -566,7 +566,7 @@ struct CrossTabPhiSquaredWindowData
     {
         clear();
 
-        readBinary(count, buf);
+        readBinaryLittleEndian(count, buf);
 
         HashMapWithStackMemory<UInt64, UInt64, TrivialHash, 4> count_a;
         HashMapWithStackMemory<UInt64, UInt64, TrivialHash, 4> count_b;
