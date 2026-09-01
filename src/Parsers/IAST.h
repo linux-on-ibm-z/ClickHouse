@@ -11,6 +11,7 @@
 #include <base/types.h>
 
 #include <atomic>
+#include <bit>
 #include <set>
 #include <string_view>
 
@@ -54,9 +55,10 @@ private:
 
 public:
 
-    /// Bit 31 of `flags_storage` is reserved for the `parenthesized` flag — see accessors below.
+    /// Bit 31 (bit 0 on big endian) of `flags_storage` is reserved for the `parenthesized` flag — see accessors below.
     /// Derived `BitfieldStruct` definitions must keep `RESERVED_BITS <= 31`.
-    static constexpr UInt32 PARENTHESIZED_BIT_MASK = UInt32{1} << 31;
+    static constexpr UInt32 PARENTHESIZED_BIT_NUM = std::endian::native == std::endian::big ? 0 : 31;
+    static constexpr UInt32 PARENTHESIZED_BIT_MASK = UInt32{1} << PARENTHESIZED_BIT_NUM;
 
     /// If the element has extra parentheses around it, e.g., in "a + (b)", b has extra parentheses.
     bool isParenthesized() const { return (flags_storage & PARENTHESIZED_BIT_MASK) != 0; }
