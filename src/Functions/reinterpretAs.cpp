@@ -375,7 +375,8 @@ public:
                 /// Source is an Array of fixed size elements, destination is String.
                 /// callOnTwoTypeIndexes above does not dispatch on the Array type index, so this case
                 /// (the inverse of String/FixedString -> Array) is handled here. ColumnArray::getDataAt
-                /// exposes each row's elements as one contiguous byte range, which we copy verbatim.
+                /// exposes each row's elements as one contiguous byte range, which we copy into the String
+                /// using the little-endian convention (reversing each element individually on big-endian).
                 /// Unlike the scalar executeToString, trailing zero bytes are NOT trimmed: the String ->
                 /// Array path requires the byte length to be an exact multiple of the element size and does
                 /// not pad, so trimming would break the round-trip (e.g. [toInt32(1)] would become a
@@ -383,8 +384,13 @@ public:
                 const IColumn & src = *arguments[0].column;
                 MutableColumnPtr dst = result_type->createColumn();
 
+                auto arr_inner_type = typeid_cast<const DataTypeArray &>(*from_type).getNestedType();
+                size_t element_size = needsEndiannessConversionForArray(arr_inner_type)
+                    ? arr_inner_type->getSizeOfValueInMemory()
+                    : 1;
+
                 ColumnString * dst_concrete = assert_cast<ColumnString *>(dst.get());
-                executeContiguousToString(src, *dst_concrete, input_rows_count);
+                executeContiguousToString(src, *dst_concrete, input_rows_count, element_size);
 
                 result = std::move(dst);
             }
@@ -490,20 +496,22 @@ private:
         }
     }
 
-    /// Copies each row's contiguous byte range verbatim into a String, without the trailing-zero
-    /// trimming that executeToString does. Used for the Array -> String reinterpret, which must be an
-    /// exact byte-for-byte inverse of String -> Array (see the call site for why trimming is wrong here).
+    /// Copies each row's contiguous byte range into a String using the little-endian convention,
+    /// without the trailing-zero trimming that executeToString does. Used for the Array -> String
+    /// reinterpret, which must be the exact byte-for-byte inverse of String -> Array (see the call
+    /// site for why trimming is wrong here).
     ///
-    /// The bytes are copied verbatim on every architecture, with no per-row or per-element byte-order
-    /// adjustment. This is deliberate and required for the round-trip: the String -> Array path
-    /// (`ColumnArray::insertData`) splits the string into element-sized chunks and stores each chunk into
-    /// the array element memory verbatim, with no byte swapping on any endianness, so the inverse must do
-    /// the same. Unlike the scalar `executeToString`, which reverses the whole row on big-endian to keep
-    /// the little-endian String convention, reversing here would break element order — e.g.
-    /// `[toUInt16(0x0102), toUInt16(0x0304)]` has in-memory bytes `01 02 03 04` on big-endian, and a
-    /// whole-row reverse yields `04 03 02 01`, which reads back as `[0x0403, 0x0201]` instead of the
-    /// original array.
-    static void NO_INLINE executeContiguousToString(const IColumn & src, ColumnString & dst, size_t input_rows_count)
+    /// On little-endian the bytes are copied verbatim (same as before). On big-endian each
+    /// element's bytes are reversed individually so that the String holds little-endian values,
+    /// matching the convention assumed by the String -> Array direction. Per-element reversal
+    /// preserves element order; a whole-row reversal would not. This mirrors what
+    /// `executeContiguousToFixedString` already does.
+    ///
+    /// `element_size` must be the byte width of one array element for multi-byte numeric types
+    /// (e.g. 4 for Int32). Pass 1 for single-byte or non-numeric nested types to keep verbatim
+    /// copy behaviour on all architectures.
+    static void NO_INLINE executeContiguousToString(
+        const IColumn & src, ColumnString & dst, size_t input_rows_count, size_t element_size)
     {
         ColumnString::Chars & data_to = dst.getChars();
         ColumnString::Offsets & offsets_to = dst.getOffsets();
@@ -519,7 +527,16 @@ private:
             /// `getDataAt` returns an empty range), and passing a null pointer to `memcpy` is undefined
             /// behavior even when the size is zero. Skip the copy in that case.
             if (!data.empty())
-                memcpy(&data_to[offset], data.data(), data.size());
+            {
+                if constexpr (std::endian::native == std::endian::little)
+                    memcpy(&data_to[offset], data.data(), data.size());
+                else if (element_size <= 1)
+                    memcpy(&data_to[offset], data.data(), data.size());
+                else
+                    for (size_t j = 0; j < data.size() / element_size; ++j)
+                        reverseMemcpy(&data_to[offset + j * element_size],
+                                      data.data() + j * element_size, element_size);
+            }
             offset += data.size();
             offsets_to[i] = offset;
         }
