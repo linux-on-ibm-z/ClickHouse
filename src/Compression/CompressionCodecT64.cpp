@@ -356,25 +356,17 @@ void reverseTransposeBytes(const UInt64 * matrix, UInt32 col, T & value)
 template <typename T>
 void load(const char * src, T * buf, UInt32 tail = 64)
 {
-    if constexpr (std::endian::native == std::endian::little)
-    {
-        memcpy(buf, src, tail * sizeof(T));
-    }
-    else
-    {
-        /// Since the algorithm uses little-endian integers, data is loaded
-        /// as little-endian types on big-endian machine (s390x, etc).
-        for (UInt32 i = 0; i < tail; ++i)
-        {
-            buf[i] = unalignedLoadLittleEndian<T>(src + i * sizeof(T));
-        }
-    }
+    memcpy(buf, src, tail * sizeof(T));
 }
 
 template <typename T>
 void store(const T * buf, char * dst, UInt32 tail = 64)
 {
-    memcpy(dst, buf, tail * sizeof(T));
+    if constexpr (std::endian::native == std::endian::little)
+        memcpy(dst, buf, tail * sizeof(T));
+    else
+        for (UInt32 i = 0; i < tail; ++i)
+            unalignedStoreLittleEndian<T>(dst + i * sizeof(T), buf[i]);
 }
 
 template <typename T>
@@ -530,13 +522,13 @@ UInt32 getValuableBitsNumber(Int64 min, Int64 max)
 template <typename T>
 void findMinMax(const char * src, UInt32 src_size, T & min, T & max)
 {
-    min = unalignedLoad<T>(src);
-    max = unalignedLoad<T>(src);
+    min = unalignedLoadLittleEndian<T>(src);
+    max = unalignedLoadLittleEndian<T>(src);
 
     const char * end = src + src_size;
     for (; src < end; src += sizeof(T))
     {
-        auto current = unalignedLoad<T>(src);
+        auto current = unalignedLoadLittleEndian<T>(src);
         if (current < min)
             min = current;
         if (current > max)
@@ -682,7 +674,7 @@ UInt32 decompressData(const char * src, UInt32 bytes_size, char * dst, UInt32 un
     {
         T min_value = static_cast<T>(min);
         for (UInt32 i = 0; i < num_elements; ++i, dst += sizeof(T))
-            unalignedStore<T>(dst, min_value);
+            unalignedStoreLittleEndian<T>(dst, min_value);
         return static_cast<UInt32>(dst - original_dst);
     }
 
