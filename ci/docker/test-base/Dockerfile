@@ -27,6 +27,36 @@ COPY clickhouse-odbc-bridge_*.deb clickhouse-library-bridge_*.deb /
 
 FROM odbc-${ODBC_SOURCE} AS odbc
 
+FROM ubuntu:22.04 as cmake-build
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    wget \
+    perl \
+    python3 \
+    make \
+    git \
+    ca-certificates \
+    libssl-dev \
+    cmake \
+    ninja-build
+
+#
+# cmake
+#
+# The KitWare cmake apt repos only have packages for amd64 and arm64.
+# This build depends on libssl.
+RUN wget https://github.com/Kitware/CMake/releases/download/v3.31.10/cmake-3.31.10.tar.gz \
+    && tar xf cmake-3.31.10.tar.gz \
+    && cd cmake-3.31.10/ \
+    && mkdir build \
+    && cmake -B build -G Ninja \
+    && cd build/ \
+    && ninja \
+    && mkdir -p /opt/cmake \
+    && chmod 777 /opt/cmake \
+    && cmake --install . --prefix /opt/cmake
+
 FROM ubuntu:22.04
 
 # ARG for quick switch to a given ubuntu mirror. Defaults stay canonical so local
@@ -137,13 +167,14 @@ RUN apt-get update \
         zstd \
         locales \
         libmpfr6 \
+        ninja-build \
         --yes --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/debconf /tmp/*
 
 # Note, libmpfr6 is also a requirement for gdb
 COPY --from=cctools /opt/gdb /opt/gdb
-COPY --from=cctools /opt/cmake /opt/cmake
+COPY --from=cmake-build /opt/cmake /opt/cmake
 # Give suid to gdb to grant it attach permissions
 RUN chmod u+s /opt/gdb/bin/gdb
 ENV PATH="/opt/cmake/bin:/opt/gdb/bin:${PATH}"
