@@ -28,6 +28,11 @@ RUN curl -s https://apt.kitware.com/keys/kitware-archive-latest.asc | gpg --dear
     && apt-get install software-properties-common --yes --no-install-recommends --verbose-versions
 
 RUN ARCH=$(uname -m) \
+    && arch=${TARGETARCH:-amd64} \
+    && case $arch in \
+        amd64|arm64) bolt_pkgs="bolt-${LLVM_VERSION}" ;; \
+        *) bolt_pkgs="" ;; \
+    esac \
     && add-apt-repository ppa:ubuntu-toolchain-r/test --yes \
     && apt-get update \
     && apt-get -o Dpkg::Options::="--force-overwrite" upgrade --yes \
@@ -41,11 +46,13 @@ RUN ARCH=$(uname -m) \
         zip \
         clang-tidy-${LLVM_VERSION} \
         llvm-${LLVM_VERSION} \
-        bolt-${LLVM_VERSION} \
+        $bolt_pkgs \
     && ln -sf /usr/bin/llvm-profdata-${LLVM_VERSION} /usr/bin/llvm-profdata \
     && ln -sf /usr/bin/llvm-cov-${LLVM_VERSION} /usr/bin/llvm-cov \
-    && ln -sf /usr/bin/llvm-bolt-${LLVM_VERSION} /usr/bin/llvm-bolt \
-    && ln -sf /usr/bin/merge-fdata-${LLVM_VERSION} /usr/bin/merge-fdata \
+    && if [ -n "$bolt_pkgs" ]; then \
+        ln -sf /usr/bin/llvm-bolt-${LLVM_VERSION} /usr/bin/llvm-bolt \
+        && ln -sf /usr/bin/merge-fdata-${LLVM_VERSION} /usr/bin/merge-fdata ; \
+    fi \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/debconf /tmp/*
 
