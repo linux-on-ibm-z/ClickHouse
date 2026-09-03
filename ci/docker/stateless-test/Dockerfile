@@ -94,15 +94,21 @@ RUN apt-get update -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/debconf /tmp/*
 
-RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o "awscliv2.zip" \
-    && unzip -q awscliv2.zip \
-    && ./aws/install \
-    && rm awscliv2.zip
+RUN arch=${TARGETARCH:-amd64} \
+    && case $arch in \
+        amd64|arm64) \
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o "awscliv2.zip" \
+            && unzip -q awscliv2.zip \
+            && ./aws/install \
+            && rm -rf awscliv2.zip aws ;; \
+        *) ;; \
+    esac
 
 ARG PROTOC_VERSION=25.1
-RUN curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip \
-    && unzip protoc-${PROTOC_VERSION}-linux-x86_64.zip -d /usr/local \
-    && rm protoc-${PROTOC_VERSION}-linux-x86_64.zip
+RUN PROTOC_ARCH=$([ "${TARGETARCH}" = "s390x" ] && echo "s390_64" || echo "x86_64") \
+    && curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip \
+    && unzip protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip -d /usr/local \
+    && rm protoc-${PROTOC_VERSION}-linux-${PROTOC_ARCH}.zip
 
 COPY requirements.txt /
 RUN if [ "${TARGETARCH}" = "s390x" ]; then \
@@ -204,9 +210,13 @@ ENV HOME="/home"
 # https://github.com/ClickHouse/azurite-rs
 ARG AZURITE_RS_VERSION=v0.1.0-1bc0ba9
 RUN arch=${TARGETARCH:-amd64} \
-    && curl -fsSL "https://github.com/ClickHouse/azurite-rs/releases/download/${AZURITE_RS_VERSION}/azurite-rs-linux-${arch}.tar.gz" | tar -xz -C /usr/local/bin/ \
-    && mv /usr/local/bin/azurite-rs-linux-${arch} /usr/local/bin/azurite-rs \
-    && chmod +x /usr/local/bin/azurite-rs
+    && case "${arch}" in \
+        amd64|arm64) \
+            curl -fsSL "https://github.com/ClickHouse/azurite-rs/releases/download/${AZURITE_RS_VERSION}/azurite-rs-linux-${arch}.tar.gz" | tar -xz -C /usr/local/bin/ \
+            && mv /usr/local/bin/azurite-rs-linux-${arch} /usr/local/bin/azurite-rs \
+            && chmod +x /usr/local/bin/azurite-rs ;; \
+        *) ;; \
+    esac
 
 ENV PYTHONPATH=".:./ci"
 
