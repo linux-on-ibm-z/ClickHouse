@@ -1,9 +1,10 @@
 # docker build -t clickhouse/stateless-test .
 ARG FROM_TAG=latest
 ARG REDPANDA_VERSION=v25.1.3
-FROM redpandadata/redpanda:${REDPANDA_VERSION} AS redpanda
 ARG CCTOOLS_TAG=${CCTOOLS_TAG-"859fb360308eb8ac47ad"}
 ARG MINIO_SOURCE=download
+
+FROM redpandadata/redpanda:${REDPANDA_VERSION} AS redpanda
 
 FROM clickhouse/cctools:${CCTOOLS_TAG} AS cctools
 
