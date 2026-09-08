@@ -137,7 +137,8 @@ RUN if [ "${TARGETARCH}" = "s390x" ]; then \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/debconf /tmp/*; \
   fi \
-  && python3.13 -m pip install --no-cache-dir -r /requirements.txt
+  && echo "cython<3.3.0" > constraints.txt \
+  && python3.13 -m pip install --no-cache-dir --build-constraint "constraints.txt" -r /requirements.txt
 
 RUN mkdir -p /tmp/clickhouse-odbc-tmp \
   && cd /tmp/clickhouse-odbc-tmp \
