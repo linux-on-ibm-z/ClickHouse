@@ -435,6 +435,9 @@ def main():
             print(f"NOTE: Enabled config option [{OPTIONS_TO_INSTALL_ARGUMENTS[to]}]")
             config_installs_args += f" {OPTIONS_TO_INSTALL_ARGUMENTS[to]}"
 
+        if to.startswith("s390x_"):
+            config_installs_args += f" --no-azure"
+
         if to in OPTIONS_TO_TEST_RUNNER_ARGUMENTS:
             if to in ("parallel", "sequential") and args.test:
                 # skip setting up parallel/sequential if specific tests are provided
