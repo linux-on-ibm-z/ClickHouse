@@ -964,14 +964,16 @@ def main():
         setup_notes = []
 
         def start():
+            azurite_supported = Utils.is_amd() or Utils.is_arm()
+            kafka_supported = Utils.is_amd() or Utils.is_arm()
             # `from_commands_run` captures this closure's stdout into the step
             # Result.info (hence CIDB test_context_raw) only when it returns a
             # failing value. Print a concise "SETUP FAILURE: <sub-step>" marker
             # at each failure point so the opaque "Start ClickHouse Server"
             # umbrella can be split into measurable sub-causes (seaweedfs /
             # wait_ready / kafka / stateful) instead of one bucket.
-            if not (CH.start_seaweedfs(test_type="stateless") and CH.start_azurite()):
-                print("SETUP FAILURE: seaweedfs/azurite did not start")
+            if not CH.start_seaweedfs(test_type="stateless") or (azurite_supported and not CH.start_azurite()):
+                print("SETUP FAILURE: minio/azurite did not start")
                 return False
             if not CH.start():
                 print("SETUP FAILURE: clickhouse-server process did not start")
@@ -982,7 +984,7 @@ def main():
                 print("SETUP FAILURE: clickhouse-server not ready (wait_ready)")
                 return False
 
-            if not CH.start_kafka():
+            if kafka_supported and not CH.start_kafka():
                 info.add_workflow_warning("Failed to start Kafka")
                 print("SETUP FAILURE: kafka did not start")
                 # Fail fast on infra setup errors so we don't burn time
