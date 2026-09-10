@@ -2,7 +2,7 @@
 
 #include "config.h"
 
-#if USE_EMBEDDED_COMPILER
+#if USE_EMBEDDED_COMPILER && !defined(__s390x__)
 
 #include <limits>
 #include <mutex>
