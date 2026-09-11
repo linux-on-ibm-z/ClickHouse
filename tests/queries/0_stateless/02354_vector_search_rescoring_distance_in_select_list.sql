@@ -1,6 +1,10 @@
--- Tags: no-fasttest, no-ordinary-database, no-parallel-replicas
+-- Tags: no-fasttest, no-ordinary-database, no-parallel-replicas, no-cpu-s390x
 --- no-parallel-replicas: Because the test records and verifies
 --- _distance values returned from the rescoring optimization.
+--- no-cpu-s390x: Because SimSimd uses a fallback code path on s390x
+--- and doesn't not produce identical results. In this case, float32
+--- to bf16 conversion uses round to nearest on amd64 but simple
+--- truncation in the fallback.
 
 -- Issue #85514
 --
