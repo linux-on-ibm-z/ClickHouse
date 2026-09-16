@@ -10,10 +10,6 @@ FROM clickhouse/cctools:${CCTOOLS_TAG} AS cctools
 
 FROM ubuntu:22.04 AS minio-download
 
-# Unrelated to vars in setup_minio.sh, but should be the same there
-# to have the same binaries for local running scenario
-ARG MINIO_SERVER_VERSION=2025-06-13T11-33-47Z
-ARG MINIO_CLIENT_VERSION=2025-05-21T01-59-54Z
 ARG TARGETARCH
 
 RUN apt-get update -y \
@@ -22,17 +18,23 @@ RUN apt-get update -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/debconf /tmp/*
 
-# Download Minio-related binaries.
-# dl.min.io throttles under concurrent multi-arch image builds, so fetch with
-# --fail (never write an error body as a "binary") and retry with backoff on
-# transient errors/timeouts; otherwise one blip fails the build and the image
-# is never pushed, breaking every downstream stateless job with "image not found".
+# Keep SEAWEEDFS_VERSION in sync with the default in setup_seaweedfs.sh
+# to have the same binaries for local running scenario
+ARG SEAWEEDFS_VERSION=4.42
+
+# Download SeaweedFS (the S3 server for stateless tests); the weed binary is a
+# static Go executable. Provisioning (identities, bucket, data upload) is done
+# with the weed binary itself plus curl, so no S3 client is needed.
+# Fetch with --fail (never write an error body as a "binary") and retry with
+# backoff on transient errors/timeouts; otherwise one blip fails the build and
+# the image is never pushed, breaking every downstream stateless job with
+# "image not found".
 RUN arch=${TARGETARCH:-amd64} \
     && curl -fL --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 60 --max-time 600 \
-        "https://dl.min.io/server/minio/release/linux-${arch}/archive/minio.RELEASE.${MINIO_SERVER_VERSION}" -o /minio \
-    && curl -fL --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 60 --max-time 600 \
-        "https://dl.min.io/client/mc/release/linux-${arch}/archive/mc.RELEASE.${MINIO_CLIENT_VERSION}" -o /mc \
-    && chmod +x /mc /minio
+        "https://github.com/seaweedfs/seaweedfs/releases/download/${SEAWEEDFS_VERSION}/linux_${arch}.tar.gz" -o /tmp/seaweedfs.tar.gz \
+    && tar -xzf /tmp/seaweedfs.tar.gz -C / weed \
+    && rm /tmp/seaweedfs.tar.gz \
+    && chmod +x /weed
 
 # Pre-bundle the AIStor (licensed MinIO) binaries so AIStor jobs do not each
 # re-fetch them from dl.min.io at runtime: ~22 stateless AIStor jobs start at
@@ -61,9 +63,29 @@ RUN arch=${TARGETARCH:-amd64} \
         "https://dl.min.io/aistor/mc/release/linux-${arch}/archive/mc.RELEASE.${AISTOR_CLIENT_VERSION}" -o /opt/aistor/mc \
     && chmod +x /opt/aistor/minio /opt/aistor/mc
 
-FROM scratch AS minio-local
+FROM ubuntu:22.04 AS minio-local
 
-COPY minio mc /
+# Keep SEAWEEDFS_VERSION in sync with the default in setup_seaweedfs.sh
+# to have the same binaries for local running scenario
+ARG SEAWEEDFS_VERSION=4.42
+
+RUN apt-get update -y \
+    && apt-get install --yes --no-install-recommends \
+        curl ca-certificates git make \
+    && curl -fL --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 60 --max-time 600 \
+        https://go.dev/dl/go1.27.1.linux-s390x.tar.gz -o go1.27.1.linux-s390x.tar.gz \
+    && rm -rf /usr/local/go && tar -C /usr/local -xzf go1.27.1.linux-s390x.tar.gz \
+    && export PATH=$PATH:/usr/local/go/bin \
+    && git clone -b ${SEAWEEDFS_VERSION} --depth 1 https://github.com/seaweedfs/seaweedfs.git \
+    && cd seaweedfs/weed \
+    && make install \
+    && mv $(go env GOPATH)/bin/weed / \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /var/cache/debconf /tmp/*
+
+RUN mkdir -p /opt/aistor \
+    && echo "No minio or mc binaries for this platform available from aistor" > /opt/aistor/minio \
+    && cp /opt/aistor/minio /opt/aistor/mc
 
 FROM minio-${MINIO_SOURCE} AS minio
 
@@ -119,6 +141,8 @@ RUN apt-get update -y \
         parallel \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/debconf /tmp/*
+
+ARG TARGETARCH
 
 RUN arch=${TARGETARCH:-amd64} \
     && case $arch in \
@@ -178,29 +202,11 @@ RUN mkdir -p /tmp/clickhouse-odbc-tmp \
 
 ENV NUM_TRIES=1
 
-# Keep SEAWEEDFS_VERSION in sync with the default in setup_seaweedfs.sh
-# to have the same binaries for local running scenario
-ARG SEAWEEDFS_VERSION=4.42
-ARG TARGETARCH
-
-# Download SeaweedFS (the S3 server for stateless tests); the weed binary is a
-# static Go executable. Provisioning (identities, bucket, data upload) is done
-# with the weed binary itself plus curl, so no S3 client is needed.
-# Fetch with --fail (never write an error body as a "binary") and retry with
-# backoff on transient errors/timeouts; otherwise one blip fails the build and
-# the image is never pushed, breaking every downstream stateless job with
-# "image not found".
-RUN arch=${TARGETARCH:-amd64} \
-    && curl -fL --retry 5 --retry-all-errors --retry-delay 5 --connect-timeout 60 --max-time 600 \
-        "https://github.com/seaweedfs/seaweedfs/releases/download/${SEAWEEDFS_VERSION}/linux_${arch}.tar.gz" -o /tmp/seaweedfs.tar.gz \
-    && tar -xzf /tmp/seaweedfs.tar.gz -C / weed \
-    && rm /tmp/seaweedfs.tar.gz \
-    && chmod +x /weed
-
 # Download Minio-related binaries
-COPY --from=minio /mc /minio /
-RUN chmod +x /mc /minio
-
+RUN mkdir -p /opt/aistor
+COPY --from=minio /opt/aistor/mc /opt/aistor/minio /opt/aistor/
+COPY --from=minio /weed /
+RUN chmod +x /opt/aistor/mc /opt/aistor/minio /weed
 ENV MINIO_ROOT_USER="clickhouse"
 ENV MINIO_ROOT_PASSWORD="clickhouse"
 
