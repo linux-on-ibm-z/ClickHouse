@@ -197,7 +197,7 @@ class ClickHouseProc:
         # instance-role credentials, which SeaweedFS does not know
         access_key = os.environ.get("SEAWEEDFS_ACCESS_KEY", "clickhouse")
         secret_key = os.environ.get("SEAWEEDFS_SECRET_KEY", "clickhouse")
-        if not Shell.check(
+        if platform.processor() != "s390x" and not Shell.check(
             f"AWS_ACCESS_KEY_ID={access_key} AWS_SECRET_ACCESS_KEY={secret_key} "
             "AWS_DEFAULT_REGION=us-east-1 "
             "aws --endpoint-url http://localhost:11111 s3 ls s3://test",
