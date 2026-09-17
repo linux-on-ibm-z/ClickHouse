@@ -140,7 +140,7 @@ struct StatisticalSample
             if constexpr (std::endian::native == std::endian::little)
                 buf.readStrict(reinterpret_cast<char *>(sample.data() + done), batch * sizeof(Element));
             else
-                for (size_t i = done; i < batch; ++i)
+                for (size_t i = done; i < done + batch; ++i)
                     readBinaryLittleEndian(sample[i], buf);
         }
     }
