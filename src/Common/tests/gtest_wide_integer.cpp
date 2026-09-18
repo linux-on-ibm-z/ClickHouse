@@ -47,8 +47,8 @@ GTEST_TEST(WideInteger, Conversions)
     ASSERT_EQ(toString(UInt256(12345678901234567890ULL)), "12345678901234567890");
 
     Int128 minus_one = -1;
-    ASSERT_EQ(minus_one.items[0], -1);
-    ASSERT_EQ(minus_one.items[1], -1);
+    ASSERT_EQ(minus_one.items[Int128::_impl::little(0)], -1);
+    ASSERT_EQ(minus_one.items[Int128::_impl::little(1)], -1);
 
     ASSERT_EQ(0, memcmp(&minus_one, "\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF", sizeof(minus_one)));
 
@@ -547,8 +547,8 @@ template <typename T>
 boost::multiprecision::cpp_int toExactInteger(const T & num)
 {
     boost::multiprecision::cpp_int result = 0;
-    for (size_t i = std::size(num.items); i-- > 0;)
-        result = (result << 64) | boost::multiprecision::cpp_int(num.items[i]);
+    for (unsigned i = std::size(num.items); i-- > 0;)
+        result = (result << 64) | boost::multiprecision::cpp_int(num.items[T::_impl::little(i)]);
 
     /// The limbs hold two's complement, so a negative value comes out as its residue modulo 2^Bits.
     if constexpr (is_signed_v<T>)
