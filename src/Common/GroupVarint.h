@@ -45,7 +45,10 @@ namespace GroupVarint4x32
         {
             const uint8_t code = encodeCode(values[i]);
             h |= static_cast<uint8_t>(code << (i * 2));
-            memcpy(p, &values[i], sizeof(uint32_t));
+            if constexpr (std::endian::native == std::endian::little)
+                memcpy(p, &values[i], sizeof(uint32_t));
+            else
+                reverseMemcpy(p, &values[i], sizeof(uint32_t));
             p += codeToSize(code);
         }
         *header = static_cast<char>(h);
@@ -75,7 +78,10 @@ namespace GroupVarint4x32
         {
             const uint8_t code = (h >> (i * 2)) & 3;
             uint32_t word = 0;
-            memcpy(&word, p, sizeof(uint32_t)); // may read up to 4 bytes past the encoded value
+            if constexpr (std::endian::native == std::endian::little)
+                memcpy(&word, p, sizeof(uint32_t)); // may read up to 4 bytes past the encoded value
+            else
+                reverseMemcpy(&word, p, sizeof(uint32_t));
             *values[i] = word & masks[code];
             p += codeToSize(code);
         }
@@ -112,7 +118,10 @@ namespace GroupVarint8x64
         {
             const uint8_t code = encodeCode(values[i]);
             h |= static_cast<uint32_t>(code) << (i * 3);
-            memcpy(p, &values[i], sizeof(uint64_t));
+            if constexpr (std::endian::native == std::endian::little)
+                memcpy(p, &values[i], sizeof(uint64_t));
+            else
+                reverseMemcpy(p, &values[i], sizeof(uint64_t));
             p += codeToSize(code);
         }
         header[0] = static_cast<char>(h & 0xff);
@@ -124,7 +133,7 @@ namespace GroupVarint8x64
     /// Number of bytes that encode() wrote / decode() will read for this group.
     inline size_t getSize(const char * in)
     {
-        const uint32_t h = unalignedLoad<uint32_t>(in);
+        const uint32_t h = unalignedLoadLittleEndian<uint32_t>(in);
         size_t size = 3;
         for (int i = 0; i < 8; ++i)
             size += codeToSize((h >> (i * 3)) & 7);
@@ -147,14 +156,17 @@ namespace GroupVarint8x64
             0xffffffffffffull,
             0xffffffffffffffffull};
         const char * p = in;
-        const uint32_t h = unalignedLoad<uint32_t>(p);
+        const uint32_t h = unalignedLoadLittleEndian<uint32_t>(p);
         p += 3;
         uint64_t * values[8] = {&v0, &v1, &v2, &v3, &v4, &v5, &v6, &v7};
         for (int i = 0; i < 8; ++i)
         {
             const uint8_t code = (h >> (i * 3)) & 7;
             uint64_t word = 0;
-            memcpy(&word, p, sizeof(uint64_t));
+            if constexpr (std::endian::native == std::endian::little)
+                memcpy(&word, p, sizeof(uint64_t));
+            else
+                reverseMemcpy(&word, p, sizeof(uint64_t));
             *values[i] = word & masks[code];
             p += codeToSize(code);
         }
