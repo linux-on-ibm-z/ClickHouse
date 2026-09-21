@@ -8,6 +8,7 @@
 #include <base/defines.h>
 
 #include <gtest/gtest.h>
+#include <Common/transformEndianness.h>
 
 namespace
 {
@@ -66,10 +67,12 @@ TEST(PackedStringRef, EmptyIsAllZeros)
 
 TEST(PackedStringRef, SmallLayout)
 {
-    if constexpr (std::endian::native != std::endian::little)
-        GTEST_SKIP() << "byte image checks assume the little-endian build path";
+    uint32_t hash{0};
+    if constexpr (std::endian::native == std::endian::little)
+        hash = 0xAABBCCDD;
+    else
+        hash = 0xDDCCBBAA;
 
-    const uint32_t hash = 0xAABBCCDD;
     for (size_t len = 1; len <= PackedStringRef::MAX_SMALL_LEN; ++len)
     {
         const std::string s = std::string("abcdefghijk").substr(0, len);
@@ -124,8 +127,11 @@ TEST(PackedStringRef, LargeLayout)
     EXPECT_TRUE(ref.isLarge());
     EXPECT_EQ(ref.getLargeSize(), len);
     EXPECT_EQ(ref.getLargePtr(), ptr);
-    /// The low 32 bits of the length act as the hash surrogate.
-    EXPECT_EQ(ref.getHash(), static_cast<uint32_t>(len));
+    /// The low 32 bits of the length act as the hash surrogate on big and little endian.
+    /// The hash surrogate is stored as little endian on all platforms.
+    uint32_t expected_hash = static_cast<uint32_t>(len);
+    DB::transformEndianness<std::endian::little>(expected_hash);
+    EXPECT_EQ(ref.getHash(), expected_hash);
 }
 
 TEST(PackedStringRef, EqualitySmall)
@@ -193,11 +199,16 @@ TEST(PackedStringRef, EqualityMediumVersusLargeLowCollision)
 {
     /// Craft a medium value and a large value whose `low` words coincide:
     /// medium: hash = 0xDEADBEEF, len = 12 -> low = 0xDEADBEEF | 12 << 32
-    /// large: len = (12 << 32) | 0xDEADBEEF -> same low word.
+    /// large: len = (12 << 32) | 0xDEADBEEF -> same low word. (little endian)
+    ///        len = (12 << 56) | 0xEFBEADDE -> same low word. (big endian)
     const std::string content(12, 'q');
     PackedStringRef medium = PackedStringRef::build(content.data(), content.size(), FixedHash{0xDEADBEEF});
 
-    const size_t large_len = (12ull << 32) | 0xDEADBEEFull;
+    size_t large_len{0};
+    if constexpr (std::endian::native == std::endian::little)
+        large_len = (12ull << 32) | 0xDEADBEEFull;
+    else
+        large_len = (12ull << 56) | 0xEFBEADDEull;
     PackedStringRef large = PackedStringRef::build(content.data(), large_len, FixedHash{0});
 
     ASSERT_EQ(medium.low, large.low);
