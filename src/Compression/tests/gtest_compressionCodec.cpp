@@ -2381,10 +2381,19 @@ UInt8 alpAutoFloat64MetaByte(const std::vector<Float64> & values)
 
     const UInt32 source_size = static_cast<UInt32>(values.size() * sizeof(Float64));
 
+    // Ensure float values are little endian on all platforms
+    std::vector<char> source_le(source_size);
+    char * write_pos = source_le.data();
+    for (Float64 v : values)
+    {
+        unalignedStoreLittleEndian<Float64>(write_pos, v);
+        write_pos += sizeof(Float64);
+    }
+
     Memory<> compressed_memory;
     compressed_memory.resize(ICompressionCodec::getHeaderSize() + codec->getCompressedReserveSize(source_size));
 
-    codec->compress(reinterpret_cast<const char *>(values.data()), source_size, compressed_memory.data());
+    codec->compress(source_le.data(), source_size, compressed_memory.data());
 
     return static_cast<UInt8>(compressed_memory[ICompressionCodec::getHeaderSize()]);
 }
