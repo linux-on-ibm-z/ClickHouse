@@ -111,13 +111,13 @@ void compressDataForType(const char * source, UInt32 source_size, char * dest, b
     const auto * cur_source = source;
     while (gcd != T(1) && cur_source < source_end)
     {
-        T val = unalignedLoad<T>(cur_source);
+        T val = unalignedLoadLittleEndian<T>(cur_source);
         T magnitude = toMagnitude(val);
         gcd = (cur_source == source) ? magnitude : boost::integer::gcd(gcd, magnitude);
         cur_source += sizeof(T);
     }
 
-    unalignedStore<T>(dest, gcd);
+    unalignedStoreLittleEndian<T>(dest, gcd);
     dest += sizeof(T);
 
     /// GCD compression is pointless if GCD = 1 or GCD = 0 (happens with 0 values in data).
@@ -136,11 +136,11 @@ void compressDataForType(const char * source, UInt32 source_size, char * dest, b
         cur_source = source;
         while (cur_source < source_end)
         {
-            T val = unalignedLoad<T>(cur_source);
+            T val = unalignedLoadLittleEndian<T>(cur_source);
             T magnitude = toMagnitude(val);
             T quotient_magnitude = static_cast<T>(static_cast<LibdivideT>(magnitude) / divider);
             T quotient = (is_signed && magnitude != val) ? T(0) - quotient_magnitude : quotient_magnitude;
-            unalignedStore<T>(dest, quotient);
+            unalignedStoreLittleEndian<T>(dest, quotient);
             cur_source += sizeof(T);
             dest += sizeof(T);
         }
@@ -150,11 +150,11 @@ void compressDataForType(const char * source, UInt32 source_size, char * dest, b
         cur_source = source;
         while (cur_source < source_end)
         {
-            T val = unalignedLoad<T>(cur_source);
+            T val = unalignedLoadLittleEndian<T>(cur_source);
             T magnitude = toMagnitude(val);
             T quotient_magnitude = magnitude / gcd;
             T quotient = (is_signed && magnitude != val) ? T(0) - quotient_magnitude : quotient_magnitude;
-            unalignedStore<T>(dest, quotient);
+            unalignedStoreLittleEndian<T>(dest, quotient);
             cur_source += sizeof(T);
             dest += sizeof(T);
         }
@@ -174,7 +174,7 @@ UInt32 decompressDataForType(const char * source, UInt32 source_size, char * des
     const char * const source_end = source + source_size;
     const char * const dest_end = dest + output_size;
 
-    const T gcd_multiplier = unalignedLoad<T>(source);
+    const T gcd_multiplier = unalignedLoadLittleEndian<T>(source);
     source += sizeof(T);
 
     /// Handle special cases GCD = 1 and GCD = 0.
@@ -192,7 +192,7 @@ UInt32 decompressDataForType(const char * source, UInt32 source_size, char * des
     {
         if (dest + sizeof(T) > dest_end) [[unlikely]]
             throw Exception(ErrorCodes::CANNOT_DECOMPRESS, "Cannot decompress GCD-encoded data");
-        unalignedStore<T>(dest, unalignedLoad<T>(source) * gcd_multiplier);
+        unalignedStoreLittleEndian<T>(dest, unalignedLoadLittleEndian<T>(source) * gcd_multiplier);
 
         source += sizeof(T);
         dest += sizeof(T);
