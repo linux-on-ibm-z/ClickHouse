@@ -119,13 +119,13 @@ void NO_SANITIZE_UNSIGNED_OVERFLOW compressDataForType(const char * source, UInt
     const auto * cur_source = source;
     while (gcd != T(1) && cur_source < source_end)
     {
-        T val = unalignedLoad<T>(cur_source);
+        T val = unalignedLoadLittleEndian<T>(cur_source);
         T magnitude = toMagnitude(val);
         gcd = (cur_source == source) ? magnitude : boost::integer::gcd(gcd, magnitude);
         cur_source += sizeof(T);
     }
 
-    unalignedStore<T>(dest, gcd);
+    unalignedStoreLittleEndian<T>(dest, gcd);
     dest += sizeof(T);
 
     /// GCD compression is pointless if GCD = 1 or GCD = 0 (happens with 0 values in data).
@@ -144,11 +144,11 @@ void NO_SANITIZE_UNSIGNED_OVERFLOW compressDataForType(const char * source, UInt
         cur_source = source;
         while (cur_source < source_end)
         {
-            T val = unalignedLoad<T>(cur_source);
+            T val = unalignedLoadLittleEndian<T>(cur_source);
             T magnitude = toMagnitude(val);
             T quotient_magnitude = static_cast<T>(static_cast<LibdivideT>(magnitude) / divider);
             T quotient = (is_signed && magnitude != val) ? T(0) - quotient_magnitude : quotient_magnitude;
-            unalignedStore<T>(dest, quotient);
+            unalignedStoreLittleEndian<T>(dest, quotient);
             cur_source += sizeof(T);
             dest += sizeof(T);
         }
@@ -158,11 +158,11 @@ void NO_SANITIZE_UNSIGNED_OVERFLOW compressDataForType(const char * source, UInt
         cur_source = source;
         while (cur_source < source_end)
         {
-            T val = unalignedLoad<T>(cur_source);
+            T val = unalignedLoadLittleEndian<T>(cur_source);
             T magnitude = toMagnitude(val);
             T quotient_magnitude = magnitude / gcd;
             T quotient = (is_signed && magnitude != val) ? T(0) - quotient_magnitude : quotient_magnitude;
-            unalignedStore<T>(dest, quotient);
+            unalignedStoreLittleEndian<T>(dest, quotient);
             cur_source += sizeof(T);
             dest += sizeof(T);
         }
@@ -183,7 +183,7 @@ UInt32 NO_SANITIZE_UNSIGNED_OVERFLOW decompressDataForType(const char * source, 
     const char * const source_end = source + source_size;
     const char * const dest_end = dest + output_size;
 
-    const T gcd_multiplier = unalignedLoad<T>(source);
+    const T gcd_multiplier = unalignedLoadLittleEndian<T>(source);
     source += sizeof(T);
 
     /// Handle special cases GCD = 1 and GCD = 0.
@@ -203,7 +203,7 @@ UInt32 NO_SANITIZE_UNSIGNED_OVERFLOW decompressDataForType(const char * source, 
             throw Exception(ErrorCodes::CANNOT_DECOMPRESS, "Cannot decompress GCD-encoded data");
         /// A type narrower than `int` is promoted to the signed `int`, where the product of two large values overflows.
         using Product = std::conditional_t<(sizeof(T) < sizeof(unsigned)), unsigned, T>;
-        unalignedStore<T>(dest, static_cast<T>(static_cast<Product>(unalignedLoad<T>(source)) * static_cast<Product>(gcd_multiplier)));
+        unalignedStoreLittleEndian<T>(dest, static_cast<T>(static_cast<Product>(unalignedLoadLittleEndian<T>(source)) * static_cast<Product>(gcd_multiplier)));
 
         source += sizeof(T);
         dest += sizeof(T);
