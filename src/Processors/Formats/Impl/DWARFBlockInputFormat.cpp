@@ -1,3 +1,4 @@
+#include <bit>
 #include <Processors/Formats/Impl/DWARFBlockInputFormat.h>
 #include <Common/CurrentThread.h>
 #if USE_DWARF_PARSER && defined(__ELF__) && !defined(OS_FREEBSD)
@@ -262,16 +263,16 @@ void DWARFBlockInputFormat::initializeIfNeeded()
     LOG_DEBUG(getLogger("DWARF"), ".debug_abbrev is {:.3f} MiB, .debug_info is {:.3f} MiB", static_cast<double>(abbrev_section->size()) * 1. / (1 << 20), static_cast<double>(info_section->size()) * 1. / (1 << 20));
 
     /// (The StringRef points into Elf's mmap of the whole file, or into file_contents.)
-    extractor.emplace(llvm::StringRef(info_section->begin(), info_section->size()), /*IsLittleEndian*/ true, /*AddressSize*/ 8);
+    extractor.emplace(llvm::StringRef(info_section->begin(), info_section->size()), /*IsLittleEndian*/ std::endian::native == std::endian::little, /*AddressSize*/ 8);
 
     if (auto line_section = elf->findSectionByName(".debug_line"))
-        debug_line_extractor.emplace(llvm::StringRef(line_section->begin(), line_section->size()), /*IsLittleEndian*/ true, /*AddressSize*/ 8);
+        debug_line_extractor.emplace(llvm::StringRef(line_section->begin(), line_section->size()), /*IsLittleEndian*/ std::endian::native == std::endian::little, /*AddressSize*/ 8);
     if (auto addr_section = elf->findSectionByName(".debug_addr"))
         debug_addr_section.emplace(addr_section->begin(), addr_section->size());
     if (auto rnglists_section = elf->findSectionByName(".debug_rnglists"))
-        debug_rnglists_extractor.emplace(llvm::StringRef(rnglists_section->begin(), rnglists_section->size()), /*IsLittleEndian*/ true, /*AddressSize*/ 8);
+        debug_rnglists_extractor.emplace(llvm::StringRef(rnglists_section->begin(), rnglists_section->size()), /*IsLittleEndian*/ std::endian::native == std::endian::little, /*AddressSize*/ 8);
     if (auto ranges_section = elf->findSectionByName(".debug_ranges"))
-        debug_ranges_extractor.emplace(llvm::StringRef(ranges_section->begin(), ranges_section->size()), /*IsLittleEndian*/ true, /*AddressSize*/ 8);
+        debug_ranges_extractor.emplace(llvm::StringRef(ranges_section->begin(), ranges_section->size()), /*IsLittleEndian*/ std::endian::native == std::endian::little, /*AddressSize*/ 8);
 
     llvm::StringMap<std::unique_ptr<llvm::MemoryBuffer>> sections;
     elf->iterateSections([&](const Elf::Section & section, size_t /*idx*/)
