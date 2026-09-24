@@ -1,31 +1,7 @@
 # docker build -t clickhouse/test-base .
 ARG CCTOOLS_TAG=${CCTOOLS_TAG-"859fb360308eb8ac47ad"}
-ARG ODBC_SOURCE=download
 
 FROM clickhouse/cctools:${CCTOOLS_TAG} AS cctools
-
-FROM ubuntu:22.04 AS odbc-download
-
-# We need ca-certificates first to be able to update all repos. This is why it's run twice
-RUN apt-get update \
-    && apt-get install ca-certificates --yes --no-install-recommends --verbose-versions
-
-RUN apt-get update \
-    && apt-get install \
-        wget \
-        dpkg \
-        --yes --no-install-recommends \
-    && BRIDGE_VERSION='25.1.5.31' \
-    && ARCH=$(dpkg --print-architecture) \
-    && cd / \
-    && wget "https://packages.clickhouse.com/deb/pool/main/c/clickhouse/clickhouse-odbc-bridge_${BRIDGE_VERSION}_${ARCH}.deb" \
-    && wget "https://packages.clickhouse.com/deb/pool/main/c/clickhouse/clickhouse-library-bridge_${BRIDGE_VERSION}_${ARCH}.deb"
-
-FROM scratch AS odbc-local
-
-COPY clickhouse-odbc-bridge_*.deb clickhouse-library-bridge_*.deb /
-
-FROM odbc-${ODBC_SOURCE} AS odbc
 
 FROM ubuntu:22.04 as cmake-build
 
@@ -196,10 +172,19 @@ COPY --from=cctools \
   /etc/ssl/
 
 # Install ODBC Bridge and Library Bridge, which are separately built components.
-COPY --from=odbc /*.deb /tmp/
-RUN cd /tmp \
-    && dpkg -i clickhouse-odbc-bridge_*.deb clickhouse-library-bridge_*.deb \
-    && rm clickhouse-odbc-bridge_*.deb clickhouse-library-bridge_*.deb
+ARG TARGETARCH
+RUN arch=${TARGETARCH:-amd64} \
+    && case $arch in \
+        amd64|arm64) \
+            BRIDGE_VERSION='25.1.5.31' \
+            && ARCH=$(dpkg --print-architecture) \
+            && cd /tmp \
+            && wget "https://packages.clickhouse.com/deb/pool/main/c/clickhouse/clickhouse-odbc-bridge_${BRIDGE_VERSION}_${ARCH}.deb" \
+            && wget "https://packages.clickhouse.com/deb/pool/main/c/clickhouse/clickhouse-library-bridge_${BRIDGE_VERSION}_${ARCH}.deb" \
+            && dpkg -i clickhouse-odbc-bridge_${BRIDGE_VERSION}_${ARCH}.deb clickhouse-library-bridge_${BRIDGE_VERSION}_${ARCH}.deb \
+            && rm clickhouse-odbc-bridge_${BRIDGE_VERSION}_${ARCH}.deb clickhouse-library-bridge_${BRIDGE_VERSION}_${ARCH}.deb ;; \
+        *) ;; \
+    esac
 
 COPY jeprof /usr/bin/jeprof
 RUN wget -q -O /usr/bin/jeprof.orig https://raw.githubusercontent.com/jemalloc/jemalloc/41a859ef7325569c6c25f92d294d45123bb81355/bin/jeprof.in &&  \
