@@ -1,6 +1,8 @@
 #include <Formats/ProtobufReader.h>
 
 #if USE_PROTOBUF
+#   include <bit>
+#   include <Common/transformEndianness.h>
 #   include <IO/ReadHelpers.h>
 #   include <limits>
 
@@ -268,6 +270,7 @@ T ProtobufReader::readFixed()
         throwUnknownFormat();
     T value;
     readBinary(&value, sizeof(T));
+    transformEndianness<std::endian::little>(value);
     if (cursor < field_end)
         next_field_number = field_number;
     return value;
