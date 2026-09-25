@@ -1,6 +1,8 @@
 #include <Formats/ProtobufWriter.h>
 
 #if USE_PROTOBUF
+#   include <bit>
+#   include <base/unaligned.h>
 #   include <IO/WriteHelpers.h>
 
 
@@ -174,7 +176,10 @@ void ProtobufWriter::writeFixed(int field_number, T value)
     {
         size_t old_size = buffer.size();
         buffer.resize(old_size + sizeof(T));
-        memcpy(buffer.data() + old_size, &value, sizeof(T));
+        if constexpr (std::endian::native == std::endian::little)
+            memcpy(buffer.data() + old_size, &value, sizeof(T));
+        else
+            reverseMemcpy(buffer.data() + old_size, &value, sizeof(T));
         return;
     }
     constexpr WireType wire_type = (sizeof(T) == 4) ? BITS32 : BITS64;
@@ -182,7 +187,11 @@ void ProtobufWriter::writeFixed(int field_number, T value)
     buffer.reserve(old_size + MAX_VARINT_SIZE + sizeof(T));
     UInt8 * ptr = buffer.data() + old_size;
     ptr = writeFieldNumber(field_number, wire_type, ptr);
-    memcpy(ptr, &value, sizeof(T));
+    if constexpr (std::endian::native == std::endian::little)
+        memcpy(ptr, &value, sizeof(T));
+    else
+        reverseMemcpy(ptr, &value, sizeof(T));
+
     ptr += sizeof(T);
     buffer.resize_assume_reserved(ptr - buffer.data());
 }
