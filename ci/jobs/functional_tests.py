@@ -1,6 +1,8 @@
+
 import argparse
 import json
 import os
+import platform
 import random
 import subprocess
 import zlib
@@ -1014,7 +1016,7 @@ def main():
                     build_type=(
                         build_types[0] if is_bugfix_validation else args.options
                     ),
-                ):
+                ) and platform.processor() != "s390x":
                     print(
                         "SETUP FAILURE: "
                         + (
