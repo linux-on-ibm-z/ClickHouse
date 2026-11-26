@@ -305,6 +305,7 @@ struct ALPDecoder : public PageDecoder
             {
                 temp.resize(num_values);
                 decodeRange(num_values, temp.data());
+                toLittleEndian(num_values);
                 converter->convertColumn(std::span(reinterpret_cast<const char *>(temp.data()), num_values * sizeof(T)), num_values, col);
             }
             return;
@@ -327,8 +328,17 @@ struct ALPDecoder : public PageDecoder
         }
         else
         {
+            toLittleEndian(pass_count);
             converter->convertColumn(std::span(reinterpret_cast<const char *>(temp.data()), pass_count * sizeof(T)), pass_count, col);
         }
+    }
+
+    /// The converters expect the PLAIN representation, which is little-endian.
+    void toLittleEndian(size_t num_values)
+    {
+        if constexpr (std::endian::native != std::endian::little)
+            for (size_t i = 0; i < num_values; ++i)
+                unalignedStoreLittleEndian<T>(&temp[i], temp[i]);
     }
 
     /// Decodes the next `num_values` values to `out` and advances `value_idx`.

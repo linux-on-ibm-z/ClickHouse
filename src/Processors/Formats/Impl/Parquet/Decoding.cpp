@@ -185,7 +185,7 @@ static void unpackBitPacked(const char * __restrict data, size_t pos, size_t n, 
 {
     static_assert(W >= 1 && W <= 32 && W <= 8 * sizeof(T));
     constexpr UInt64 mask = (UInt64(1) << W) - 1;
-    auto load = [](const char * p) { UInt64 x = 0; memcpy(&x, p, 8); return x; };
+    auto load = [](const char * p) { return unalignedLoadLittleEndian<UInt64>(p); };
 
     size_t i = 0;
     for (; i < n && (pos & 7); ++i, pos += W)
@@ -690,7 +690,8 @@ struct PlainBooleanDecoder : public PageDecoder
                 /// x = 00000000 000000hg 00000000 000000fe 00000000 000000dc 00000000 000000ba
                 x = (x | (x <<  7)) & 0x0101010101010101ul;
                 /// x = 0000000h 0000000g 0000000f 0000000e 0000000d 0000000c 0000000b 0000000a
-                memcpy(to + i, &x, 8);
+                /// Byte `j` of the output must be bit `j`, i.e. store as little-endian.
+                unalignedStoreLittleEndian<UInt64>(to + i, x);
                 i += 8;
             }
             else
@@ -1042,7 +1043,24 @@ struct DeltaBinaryPackedDecoder : public PageDecoder
                 ++out_idx;
         }
         if (!direct && to)
+        {
+            if constexpr (std::endian::native != std::endian::little)
+            {
+                if (value_size == 4)
+                {
+                    UInt32 * dst = reinterpret_cast<UInt32 *>(to);
+                    for (size_t i = 0; i < pass_count; ++i)
+                        dst[i] = std::byteswap(dst[i]);
+                }
+                else if (value_size == 8)
+                {
+                    UInt64 * dst = reinterpret_cast<UInt64 *>(to);
+                    for (size_t i = 0; i < pass_count; ++i)
+                        dst[i] = std::byteswap(dst[i]);
+                }
+            }
             converter->convertColumn(std::span(to, pass_count * value_size), pass_count, col);
+        }
     }
 
     void decodeImplFull(size_t num_values, IColumn & col)
@@ -1070,7 +1088,24 @@ struct DeltaBinaryPackedDecoder : public PageDecoder
         }
 
         if (!direct)
+        {
+            if constexpr (std::endian::native != std::endian::little)
+            {
+                if (converter->input_size == 4)
+                {
+                    UInt32 * dst = reinterpret_cast<UInt32 *>(to);
+                    for (size_t i = 0; i < num_values; ++i)
+                        dst[i] = std::byteswap(dst[i]);
+                }
+                else if (converter->input_size == 8)
+                {
+                    UInt64 * dst = reinterpret_cast<UInt64 *>(to);
+                    for (size_t i = 0; i < num_values; ++i)
+                        dst[i] = std::byteswap(dst[i]);
+                }
+            }
             converter->convertColumn(std::span(to, num_values * converter->input_size), num_values, col);
+        }
     }
 
     template <typename T, typename F>
@@ -2441,6 +2476,19 @@ void UUIDConverter::convertColumn(std::span<const char> data, size_t num_values,
     }
 }
 
+void FixedStringConverter::convertColumn(std::span<const char> data, size_t num_values, IColumn & col) const
+{
+    if (isTrivial())
+    {
+        memcpyIntoColumn(data.data(), num_values, input_size, col);
+        return;
+    }
+    auto to = col.insertRawUninitialized(num_values);
+    chassert(to.size() == num_values * input_size);
+    for (size_t i = 0; i < num_values; ++i)
+        reverseMemcpy(to.data() + i * input_size, data.data() + i * input_size, input_size);
+}
+
 std::optional<Field> FixedStringConverter::convertField(std::span<const char> data, bool /*is_max*/) const
 {
     if (data.size() != input_size)
@@ -2516,7 +2564,14 @@ BigEndianHelper<T>::BigEndianHelper(size_t input_size)
     if constexpr (std::endian::native == std::endian::little)
         value_mask = (~T(0)) << (8 * value_offset);
     else
+    {
         value_mask = (~T(0)) >> (8 * value_offset);
+        if (value_offset > 0)
+        {
+            T clear_mask = ~( (~T(0)) << (8 * (sizeof(T) - value_offset)) );
+            value_mask &= clear_mask;
+        }
+    }
 
     if (value_offset != 0)
     {

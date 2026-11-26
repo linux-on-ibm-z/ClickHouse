@@ -334,7 +334,8 @@ struct FloatConverter : public FixedSizeConverter
 {
     FloatConverter() { input_size = sizeof(T); }
 
-    [[nodiscard]] bool isTrivial() const override { return true; }
+    /// Parquet stores floats little-endian, so on big-endian hosts values must be byte-swapped.
+    [[nodiscard]] bool isTrivial() const override { return std::endian::native == std::endian::little; }
 
     void convertColumn(std::span<const char> data, size_t num_values, IColumn & col) const override;
 
@@ -355,7 +356,16 @@ struct Float16Converter : public FixedSizeConverter
 /// FIXED_LEN_BYTE_ARRAY -> any fixed-size type
 struct FixedStringConverter : public FixedSizeConverter
 {
-    [[nodiscard]] bool isTrivial() const override { return true; }
+    /// The output is a [U]Int128/[U]Int256 column holding the legacy ClickHouse binary format,
+    /// i.e. a little-endian integer. On big-endian hosts the bytes must be reversed.
+    bool output_little_endian_integer = false;
+
+    [[nodiscard]] bool isTrivial() const override
+    {
+        return !output_little_endian_integer || std::endian::native == std::endian::little;
+    }
+
+    void convertColumn(std::span<const char> data, size_t num_values, IColumn & col) const override;
 
     [[nodiscard]] std::optional<Field> convertField(std::span<const char> data, bool /*is_max*/) const override;
 };

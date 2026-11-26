@@ -2490,6 +2490,7 @@ void SchemaConverter::processPrimitiveColumn(
         }
         case parq::Type::FIXED_LEN_BYTE_ARRAY:
         {
+            bool output_little_endian_integer = false;
             if (type_hint)
             {
                 WhichDataType which(type_hint->getTypeId());
@@ -2509,6 +2510,7 @@ void SchemaConverter::processPrimitiveColumn(
                     type_hint->getSizeOfValueInMemory() == size_t(element.type_length))
                 {
                     out_inferred_type = type_hint;
+                    output_little_endian_integer = true;
                 }
             }
 
@@ -2528,6 +2530,7 @@ void SchemaConverter::processPrimitiveColumn(
 
             auto converter = std::make_shared<FixedStringConverter>();
             converter->input_size = size_t(element.type_length);
+            converter->output_little_endian_integer = output_little_endian_integer;
             out_decoder.fixed_size_converter = std::move(converter);
 
             /// Stats are only allowed for FixedString if the output is actually a string.

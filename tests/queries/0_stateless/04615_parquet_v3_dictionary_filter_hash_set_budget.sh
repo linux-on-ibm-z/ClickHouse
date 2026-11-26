@@ -91,11 +91,18 @@ run 4000000000 "select count() from file('${NULLS_FILE}', Parquet, 'n UInt64, ca
 # the reservation also covers the materialization terms, which leave enough headroom for a doubled
 # vector, so appending would not change the behavior here. It is pinned by a `chassert` in
 # `hashDictionaryValues` instead, which every debug and sanitizer build checks on this very query.
+watermark_affords=1100000
+watermark_below=975000
+if [[ $(uname -m) == "s390x" ]]; then
+    watermark_affords=1300000
+    watermark_below=1100000
+fi
+
 echo "null_as_default, watermark that affords the hash vectors: the null-free row group is still pruned"
-run 1100000 "select count() from file('${NULLS_FILE}', Parquet, 'n UInt64, category Int32') where category = 0" --input_format_null_as_default=1
+run "${watermark_affords}" "select count() from file('${NULLS_FILE}', Parquet, 'n UInt64, category Int32') where category = 0" --input_format_null_as_default=1
 
 echo "null_as_default, watermark just below what the value set needs: pruning is skipped, all 8704 rows are read"
-run 975000 "select count() from file('${NULLS_FILE}', Parquet, 'n UInt64, category Int32') where category = 0" --input_format_null_as_default=1
+run "${watermark_below}" "select count() from file('${NULLS_FILE}', Parquet, 'n UInt64, category Int32') where category = 0" --input_format_null_as_default=1
 
 echo "null_as_default results are identical regardless of the memory budget"
 diff \

@@ -787,16 +787,32 @@ struct ConverterNumberAsFixedString
     /// doesn't know it's numbers.
     using Statistics = StatisticsFixedStringCopy<sizeof(T), /*SIGNED=*/ false>;
 
+    /// Wide integers are written as little-endian bytes, so they have to be reversed on big-endian
+    /// hosts. `IPv6` is a sequence of bytes and is written as is.
+    static constexpr bool reverse_bytes = std::endian::native != std::endian::little && !std::is_same_v<T, IPv6>;
+
     const ColumnVector<T> & column;
     PODArray<FixedLenByteArray> buf;
+    PODArray<uint8_t> reversed_buf;
 
     explicit ConverterNumberAsFixedString(const ColumnPtr & c) : column(assert_cast<const ColumnVector<T> &>(*c)) {}
 
     const FixedLenByteArray * getBatch(size_t offset, size_t count)
     {
         buf.resize(count);
+        if constexpr (reverse_bytes)
+            reversed_buf.resize(count * sizeof(T));
         for (size_t i = 0; i < count; ++i)
-            buf[i].ptr = reinterpret_cast<const uint8_t *>(column.getData().data() + offset + i);
+        {
+            const T * value = column.getData().data() + offset + i;
+            if constexpr (reverse_bytes)
+            {
+                reverseMemcpy(reversed_buf.data() + i * sizeof(T), value, sizeof(T));
+                buf[i].ptr = reversed_buf.data() + i * sizeof(T);
+            }
+            else
+                buf[i].ptr = reinterpret_cast<const uint8_t *>(value);
+        }
         return buf.data();
     }
 
