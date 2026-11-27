@@ -49,7 +49,12 @@ struct StackBounds
 constinit thread_local StackBounds stack_bounds;
 
 /// Thread stacks use `STACK_SIZE_FREE_RATIO`, which leaves too little room on a 320 KiB coroutine stack.
+/// On s390x the stack frames are larger and more space is needed during exception unwinding.
+#if defined(__s390x__)
+constexpr size_t COROUTINE_STACK_RESERVE = 96 * 1024;
+#else
 constexpr size_t COROUTINE_STACK_RESERVE = 64 * 1024;
+#endif
 }
 
 /**
